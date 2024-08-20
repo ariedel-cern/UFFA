@@ -1,0 +1,10 @@
+: 1722611549:0;ls
+: 1722611555:0;touch Utils/__init__.py
+: 1722611556:0;exit
+: 1722611187:0;mkdir Utils
+: 1722611197:0;mv UffaUtils.py Utils/CorrelationUtils.py
+: 1722611198:0;clear
+: 1722615562:0;black UFFA/*.py
+: 1722615570:0;black *.py
+: 1722615576:0;black Utils/*.py
+: 1722615577:0;vi
