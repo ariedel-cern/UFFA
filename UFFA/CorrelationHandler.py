@@ -443,11 +443,13 @@ class CorrelationHandler:
         """
         Call SetDirectory(0) on all histograms to obtain ownership
         """
+        logger.debug("Gain ownership of histograms")
         if self._InheritsTH1:
             self._Se.SetDirectory(0)
             self._Me.SetDirectory(0)
-            self._SeInBin.SetDirectory(0)
-            self._MeInBin.SetDirectory(0)
+            if self._Bins is not None:
+                self._SeInBin.SetDirectory(0)
+                self._MeInBin.SetDirectory(0)
 
         self._Se2d.SetDirectory(0)
         self._Me2d.SetDirectory(0)
