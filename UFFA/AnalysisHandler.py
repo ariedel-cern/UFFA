@@ -218,7 +218,9 @@ class AnalysisHandler:
             workers (int): Number of launched threads(!). If number is less then 0, use all avaiable cores.
         """
         OutputFile = rt.TFile(self._OutputFileName, "RECREATE")
-        self._OutputDir = rt.TDirectoryFile( self._OutputDirName, self._OutputDirName, "", OutputFile)
+        self._OutputDir = rt.TDirectoryFile(
+            self._OutputDirName, self._OutputDirName, "", OutputFile
+        )
 
         if parallel == True:
             if workers <= 0:

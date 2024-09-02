@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import ctypes as ct
 from .Utils import CorrelationUtils as cu
+from .Utils import HistUtils as hu
 
 logger = logging.getLogger(__name__)
 
@@ -13,193 +14,201 @@ class CorrelationHandler:
     """
 
     # names of histograms
-    SeName = "SE_Original"
-    MeName = "ME_Original"
-    SeWithCutName = "SE_with_Cuts"
-    MeWithCutName = "ME_with_Cuts"
-    Se2dName = "SE_2d"
-    Me2dName = "ME_2d"
-    Me2dRwName = "ME_2d_Reweighted"
-    Se1dName = "SE"
-    Se1dNormName = "SE_Normalized"
-    Me1dName = "ME"
-    Me1dNormName = "ME_Normalized"
-    Me1dRwName = "ME_Reweighted"
-    Me1dRwNormName = "ME_Reweighted_Normalized"
-    CfName = "CF"
-    CfRwName = "CF_Reweighted"
+    se_name = "SE_Original"
+    me_name = "ME_Original"
+    se_inRange_name = "SE_inRange"
+    me_inRange_name = "ME_inRange"
+    se_2d_name = "SE_2d"
+    se_2d_noRebin_name = "SE_2d_NoRebin"
+    me_2d_name = "ME_2d"
+    me_2d_noRebin_name = "ME_2d_NoRebin"
+    me_2d_reweighted_name = "ME_2d_Reweighted"
+    me_2d_reweighted_noRebin_name = "ME_2d_Reweighted_NoRebin"
+    se_1d_name = "SE"
+    s1_1d_normalized_name = "SE_Normalized"
+    me_1d_name = "ME"
+    me_1d_noRebin_name = "ME_NoRebin"
+    me_1d_normalized_name = "ME_Normalized"
+    me_1d_reweighted_name = "ME_Reweighted"
+    me_1d_reweighted_noRebin_name = "ME_Reweighted_NoRebin"
+    me_1d_reweighted_normalized_name = "ME_Reweighted_Normalized"
+    cf_name = "CF"
+    cf_recentered_name = "Cf_Recentered"
+    cf_reweighted_name = "CF_Reweighted"
 
     def __init__(
         self,
-        Se,
-        Me,
-        NormRange,
-        RebinFactorKstarAxis=-1,
-        IndexKstarAxis=0,
-        IndexReweightAxis=-1,
-        Bins=[],
+        se,
+        me,
+        normalization_range,
+        rebin_kstar=-1,
+        index_kstar=0,
+        index_reweight=-1,
+        ranges=[],
     ):
         """
         CorrelationHanderl constructor
         Read in all information necessary to compute the correlation function
         Args:
-            SE (TH1/TH2/TH3/THnSparse): Same Event distribution
-            ME (same as SE): Mixed Event distribution
-            NormRange (tuple): Tuple containg upper and lower bound for normalization
-            IndexKstarAxis (int): Index of kstar axis (axis start counting from 0)
-            IndexReweightAxis (int): Index of axis to use for reweighting (axis start counting from 0, set to -1 to deactivate)
-            RebinFactorKstarAxis (int): Rebin factor of kstar axis (set to -1 to deactivate)
-            Bins (list of tuples): List of tuples to indicate bin for each axis in a tuple (Min,Max)
+            se (TH1/TH2/TH3/THnSparse): Same Event distribution
+            me (same as SE): Mixed Event distribution
+            normalization_range (tuple): Tuple containg upper and lower bound for normalization
+            rebin_kstar (int): Rebin factor of kstar axis (set to -1 to deactivate)
+            index_kstar (int): Index of kstar axis (axis start counting from 0)
+            index_reweight (int): Index of axis to use for reweighting (axis start counting from 0, set to -1 to deactivate)
+            ranges (list of tuples): List of tuples to indicate bin for each axis in a tuple (Min,Max). If no range should be applied, the value should be None
         """
 
         # declaring all class variables
-        self._Se = None  # original same event distribution
-        self._Me = None  # original mixed event distribution
-        self._SeInBin = None  # same event distribution in bin
-        self._MeInBin = None  # mixed event distribution in bin
-        self._HistDimension = None  # dimensions of SE/ME histograms
-        self._IndexAxisKstar = None  # index of kstar axis, axis are counted from 0
-        self._IndexAxisReweight = (
+        self._se = None  # original same event distribution
+        self._me = None  # original mixed event distribution
+        self._se_inRange = None  # same event distribution in bin
+        self._me_inRange = None  # mixed event distribution in bin
+        self._dimension = None  # dimensions of SE/ME histograms
+        self._index_kstar = None  # index of kstar axis, axis are counted from 0
+        self._index_reweight = (
             None  # index of axis used for reweighting, axis are counted from 0
         )
-        self._Se2d = (
+        self._se_2d = (
             None  # same event distribution projected down to kstar vs reweight axis
         )
-        self._Me2d = (
+        self._me_2d = (
             None  # mixed event distribution projected down to kstar vs reweight axis
         )
-        self._Se1d = None  # same event distribution projected down to kstar
-        self._Se1dNorm = None  # same event distribution projected down to kstar, normalized in NormRange
-        self._Me1d = None  # mixed event distribution projected down to kstar
-        self._Me1dNorm = None  # mixed event distribution projected down to kstar, normalized in NormRange
-        self._Cf = None  # correlation function
-        self._Me2dRw = None  # mixed event distribution projected down to kstar vs reweight axis (reweighted)
-        self._Me1dRw = (
+        self._me_2d_noRebin = None  # mixed event distribution projected down to kstar vs reweight axis (not rebinned)
+        self._se_1d = None  # same event distribution projected down to kstar
+        self._se_1d_normalized = None  # same event distribution projected down to kstar, normalized in NormRange
+        self._me_1d = None  # mixed event distribution projected down to kstar
+        self._me_1d_normalized = None  # mixed event distribution projected down to kstar, normalized in NormRange
+        self._me_1d_noRebin = (
+            None  # mixed event distribution projected down to kstar (not rebinned)
+        )
+        self._cf = None  # correlation function
+        self._cf_recentered = None  # correlation function (recentered)
+        self._me_2d_reweighted = None  # mixed event distribution projected down to kstar vs reweight axis (reweighted)
+        self._me_2d_noRebin_reweighted = None  # mixed event distribution projected down to kstar vs reweight axis (not rebinned)
+        self._me_1d_reweighted = (
             None  # mixed event distribution projected down to kstar (reweighted)
         )
-        self._Me1dRwNorm = None  # mixed event distribution projected down to kstar (reweighted), normalized in NormRange
-        self._CfRw = None  # correlation function (reweighted)
-        self._NormRange = None  # normalization range
-        self._RebinFactorKstarAxis = None
-        self._Bins = None  # list of bins
+        self._me_1d_noRebin_reweighted = None  # mixed event distribution projected down to kstar (reweighted and not rebinned)
+        self._me_1d_reweighed_normalized = None  # mixed event distribution projected down to kstar (reweighted), normalized in NormRange
+        self._cf_reweighted = None  # correlation function (reweighted)
+        self._normalization_range = None  # normalization range
+        self._rebin_kstar = None
+        self._ranges = None  # list of ranges
+
+        # bools
+        self._setRanges = False
+        self._reweighting = False
+        self._rebinning = False
 
         ### From here: Argument santiszation and parsing
 
         # check that SE and ME are not null pointers
-        if Se == None or Me == None:
+        if se == None or me == None:
             raise TypeError("Se or Me are null pointers")
         # check that SE and ME have the same class
-        if not (Se.IsA() == Me.IsA()):
+        if not (se.IsA() == me.IsA()):
             raise TypeError("Histogram type of SE and ME do not match")
 
         # bool to check if Se/Me inherit from TH1 (i.e. do not inherit from THn)
         # if this is true, call SetDirectory(0) so CorrelationHandler can manage histograms (otherwise the might be name clashes)
-        self._InheritsTH1 = True
+        if se.InheritsFrom(rt.TH1.Class()):
+            self._inheritsTH1 = True
 
         # Get histogram type of SE and ME to determine their dimensions
-        if Se.InheritsFrom(rt.THnBase.Class()):
-            self._HistDimension = Se.GetNdimensions()
-            self._InheritsTH1 = False
-            logger.debug(
-                "Detected histogram type: THn with %d dimensions", self._HistDimension
-            )
-        elif Se.InheritsFrom(rt.TH3.Class()):
-            self._HistDimension = 3
-            logger.debug("Detected histogram type: %s", Se.ClassName())
-        elif Se.InheritsFrom(rt.TH2.Class()):
-            self._HistDimension = 2
-            logger.debug("Detected histogram type: %s", Se.ClassName())
-        elif Se.InheritsFrom(rt.TH1.Class()):
-            self._HistDimension = 1
-            logger.debug("Detected histogram type: %s", Se.ClassName())
-        else:
-            raise TypeError(f"Histogram type not supported: {Se.ClassName()}")
+        self._dimension = hu.GetHistDimension(se)
+        logger.debug("Number of dimensions of SE/ME: %d", self._dimension)
 
         # Clone original SE/ME
-        self._Se = Se.Clone(self.SeName)
-        self._Me = Me.Clone(self.MeName)
+        self._se = se.Clone(self.se_name)
+        self._me = me.Clone(self.me_name)
 
         # check that normalization range is passed as a tuple of floats
-        assert isinstance(NormRange, tuple), "NormRange is not an tuple"
-        assert isinstance(NormRange[0], float), "Lower edge of NormRange is not a float"
-        assert isinstance(NormRange[1], float), "Upper edge of NormRange is not a float"
-        if NormRange[0] > NormRange[1]:
+        assert isinstance(normalization_range, tuple), "NormRange is not an tuple"
+        assert isinstance(
+            normalization_range[0], float
+        ), "Lower edge of NormRange is not a float"
+        assert isinstance(
+            normalization_range[1], float
+        ), "Upper edge of NormRange is not a float"
+        if normalization_range[0] > normalization_range[1]:
             raise ValueError(
-                f"Lower edge of NormRange is larger than the upper edge (%{NormRange[0]}, {NormRange[1]})"
+                f"Lower edge of NormRange is larger than the upper edge (%{normalization_range[0]}, {normalization_range[1]})"
             )
-        self._NormRange = NormRange
+        self._normalization_range = normalization_range
         logger.debug(
             "Normalization range: (%f,%f)",
-            NormRange[0],
-            NormRange[1],
+            normalization_range[0],
+            normalization_range[1],
         )
 
         # assert index of kstar axis is an integer
-        assert isinstance(IndexKstarAxis, int), "IndexKstarAxis is not an integer"
+        assert isinstance(index_kstar, int), "IndexKstarAxis is not an integer"
 
         # Check if index of kstar axis is smaller than number of dimensions
         # Axis indices are counted from 0, so the index can go from 0,..,N-1
-        if self._HistDimension - 1 < IndexKstarAxis:
+        if self._dimension - 1 < index_kstar:
             raise ValueError(
-                f"Index of kstar axis (={IndexKstarAxis}) is larger or equal the histogram dimension (={self._HistDimension})"
+                f"Index of kstar axis (={index_kstar}) is larger or equal the histogram dimension (={self._dimension})"
             )
 
         # Set kstar axis
-        if self._HistDimension == 1:
-            self._IndexAxisKstar = 0
+        if self._dimension == 1:
+            self._index_kstar = 0
             logger.debug("TH1 histogram detected, set index of kstar axis to 0")
         else:
-            self._IndexAxisKstar = IndexKstarAxis
-            logger.debug("Provided index of kstar axis: %d", self._IndexAxisKstar)
+            self._index_kstar = index_kstar
+            logger.debug("Provided index of kstar axis: %d", self._index_kstar)
 
         # Check if reweighting is activated
-        if IndexReweightAxis >= 0:
+        if index_reweight >= 0:
             # assert index of reweight axis is an integer
             assert isinstance(
-                IndexReweightAxis, int
+                index_reweight, int
             ), "IndexReweightAxis is not an integer"
 
             # check that dimensions of histograms is larger than 1, otherwise reweighting is not possible
-            if self._HistDimension <= 1:
+            if self._dimension <= 1:
                 raise ValueError("1D Histogram provided, but reweighting is activated")
 
             # Check if index of reweight axis is smaller than number of dimensions
             # Axis indices are counted from 0, so the index can go from 0,..,N-1
-            if self._HistDimension - 1 < IndexReweightAxis:
+            if self._dimension - 1 < index_reweight:
                 raise ValueError(
-                    f"Index of reweight axis (={IndexReweightAxis}) is larger or equal the histograms dimension (={self._HistDimension})"
+                    f"Index of reweight axis (={index_reweight}) is larger or equal the histograms dimension (={self._dimension})"
                 )
 
             # check that index of kstar axis is different from index of reweight axis
-            if IndexKstarAxis == IndexReweightAxis:
+            if index_kstar == index_reweight:
                 raise ValueError(
-                    f"Index of kstar axis (={IndexKstarAxis}) and reweight axis (={IndexReweightAxis}) are the same"
+                    f"Index of kstar axis (={index_kstar}) and reweight axis (={index_reweight}) are the same"
                 )
 
             # now set the reweight index
-            self._IndexAxisReweight = IndexReweightAxis
-            logger.debug("Provided index of reweight axis: %d", self._IndexAxisReweight)
+            self._index_reweight = index_reweight
+            self._reweighting = True
+            logger.debug("Provided index of reweight axis: %d", self._index_reweight)
 
         # check type of rebin fator
-        if RebinFactorKstarAxis > 0:
-            assert isinstance(
-                RebinFactorKstarAxis, int
-            ), "Rebin factor is not an integer"
-            self._RebinFactorKstarAxis = RebinFactorKstarAxis
-            logger.debug("Provided rebin factor: %d", self._RebinFactorKstarAxis)
+        if rebin_kstar > 0:
+            assert isinstance(rebin_kstar, int), "Rebin factor is not an integer"
+            self._rebin_kstar = rebin_kstar
+            self._rebinning = True
+            logger.debug("Provided rebin factor: %d", self._rebin_kstar)
 
-        if Bins:
+        if ranges:
             # check that provided list has the correct number of dimensions
-            if len(Bins) != self._HistDimension:
+            if len(ranges) != self._dimension:
                 logger.critical(
                     "Number of bins (=%d) and number of dimension (#=%d) do not match",
-                    len(Bins),
-                    self._HistDimension,
+                    len(ranges),
+                    self._dimension,
                 )
                 raise ValueError(
-                    f"Number of bins (={len(Bins)}) and number of dimension (={self._HistDimension}) do not match"
+                    f"Number of bins (={len(ranges)}) and number of dimension (={self._dimension}) do not match"
                 )
-            for dim, bin in enumerate(Bins):
+            for dim, bin in enumerate(ranges):
                 assert isinstance(bin, tuple), "bin range is not an tuple"
                 if bin:
                     assert isinstance(
@@ -220,271 +229,288 @@ class CorrelationHandler:
                     )
                 else:
                     logger.debug("No bin is configured in dimension %d", dim)
-            self._Bins = Bins
+            self._setRanges = True
+            self._ranges = ranges
+
+    def DoRangeLimits(self):
+        """
+        Apply range limits to same and mixed event distribution
+        """
+        logger.debug("Applying range limits to Se/Me distribution")
+
+        self._se_inRange = self._se.Clone(self.se_inRange_name)
+        self._me_inRange = self._me.Clone(self.me_inRange_name)
+
+        hu.SetHistRanges(self._se_inRange, self._ranges)
+        hu.SetHistRanges(self._me_inRange, self._ranges)
+
+    def DoProjections1d(self):
+        """
+        Project SE and ME onto 1d Histogram (kstar axis)
+        """
+        logger.debug(
+            "Project SE/ME (Dim=%d) onto kstar axis (Index=%d)",
+            self._dimension,
+            self._index_kstar,
+        )
+
+        # use cuts if they are defined
+        if self._setRanges:
+            se = self._se_inRange
+            me = self._me_inRange
+        else:
+            se = self._se
+            me = self._me
+
+        if self._dimension == 1:
+            self._se_1d = se.Clone(self.se_1d_name)
+            self._me_1d = me.Clone(self.me_1d_name)
+
+        elif self._dimension == 2:
+            self._se_1d = cu.Proj2dTo1d(se, self._index_kstar, self.se_1d_name)
+            self._me_1d = cu.Proj2dTo1d(me, self._index_kstar, self.me_1d_name)
+
+        elif self._dimension == 3:
+            self._se_1d = cu.Proj3dTo1d(se, self._index_kstar, self.se_1d_name)
+            self._me_1d = cu.Proj3dTo1d(me, self._index_kstar, self.me_1d_name)
+        else:
+            self._se_1d = cu.ProjNdTo1d(se, self._index_kstar, self.se_1d_name)
+            self._me_1d = cu.ProjNdTo1d(me, self._index_kstar, self.me_1d_name)
+
+    def DoProjections2d(self):
+        """
+        Project SE and ME onto 2d (kstar vs reweight) Histogram and 1d (kstar) axis Histogram
+        """
+        logger.debug(
+            "Project SE/ME (Dim=%d) onto kstar axis (Index=%d) vs reweight axis (Index=%d)",
+            self._dimension,
+            self._index_kstar,
+            self._index_reweight,
+        )
+
+        # use cuts if they are defined
+        if self._setRanges:
+            se = self._se_inRange
+            me = self._me_inRange
+        else:
+            se = self._se
+            me = self._me
+
+        if self._dimension == 2:
+            # Swap x and y axis in case kstar axis is not index 0, otherwise just return histogram again
+            self._se_2d = cu.Proj2dTo2d(
+                se, self._index_kstar, self._index_reweight, self.se_2d_name
+            )
+            self._me_2d = cu.Proj2dTo2d(
+                me, self._index_kstar, self._index_reweight, self.me_2d_name
+            )
+
+        elif self._dimension == 3:
+            self._se_2d = cu.Proj3dTo2d(
+                se, self._index_kstar, self._index_reweight, self.se_2d_name
+            )
+            self._me_2d = cu.Proj3dTo2d(
+                me, self._index_kstar, self._index_reweight, self.me_2d_name
+            )
+        else:
+            self._se_2d = cu.ProjNdTo2d(
+                se, self._index_kstar, self._index_reweight, self.se_2d_name
+            )
+            self._me_2d = cu.ProjNdTo2d(
+                me, self._index_kstar, self._index_reweight, self.me_2d_name
+            )
 
     def DoRebin(self):
         """
         Rebin Se/Me histogram
         """
         logger.debug("Rebin SE/ME")
-        if self._HistDimension == 1:
-            self._Se.Rebin(self._RebinFactorKstarAxis)
-            self._Me.Rebin(self._RebinFactorKstarAxis)
-        elif self._HistDimension == 2:
-            if self._IndexAxisKstar == 0:
-                self._Se.RebinX(self._RebinFactorKstarAxis)
-                self._Me.RebinX(self._RebinFactorKstarAxis)
-            else:
-                self._Se.RebinY(self._RebinFactorKstarAxis)
-                self._Me.RebinY(self._RebinFactorKstarAxis)
-        elif self._HistDimension == 3:
-            if self._IndexAxisKstar == 0:
-                self._Se.RebinX(self._RebinFactorKstarAxis)
-                self._Me.RebinX(self._RebinFactorKstarAxis)
-            elif self._IndexAxisKstar == 1:
-                self._Se.RebinY(self._RebinFactorKstarAxis)
-                self._Me.RebinY(self._RebinFactorKstarAxis)
-            else:
-                self._Se.RebinZ(self._RebinFactorKstarAxis)
-                self._Me.RebinZ(self._RebinFactorKstarAxis)
-        else:
-            RebinFactors = np.ones((self._HistDimension))
-            RebinFactors[self._IndexAxisKstar] = self._RebinFactorKstarAxis
-            RebinFactors = RebinFactors.astype(dtype=ct.c_int32)
-            self._Se = self._Se.Rebin(RebinFactors)
-            self._Se.SetName(self.SeName)
-            self._Me = self._Me.Rebin(RebinFactors)
-            self._Me.SetName(self.MeName)
 
-    def DoCuts(self):
+        self._se_rebin = self._se.Clone()
+        self._me_rebin = self._me.Clone()
+
+        rebi
+
+        # rebin 1d histograms, keep copy of original mixed event distribution
+        self._me_1d_noRebin = self._me_1d.Clone(self.me_1d_noRebin_name)
+        self._me_1d.Rebin(self._rebin_kstar)
+        self._se_1d.Rebin(self._rebin_kstar)
+
+        # rebin 2d histograms, keep copy of original mixed event distribution
+        if self._reweighting:
+            self._se_2d_noRebin = self._se_2d.Clone(self.se_2d_noRebin_name)
+            print("asdf")
+            print(self._se_2d.GetMean(2))
+            self._se_2d.RebinX(self._rebin_kstar)
+            print(self._se_2d.GetMean(2))
+            self._me_2d_noRebin = self._me_2d.Clone(self.me_2d_noRebin_name)
+            self._me_2d.RebinX(self._rebin_kstar)
+
+    def DoReweight(self):
         """
-        Apply cuts to same and mixed event distribution
+        Reweight Mixed event distributions
         """
-        logger.debug("Apply cuts to SE/ME")
-
-        self._SeInBin = self._Se.Clone(self.SeWithCutName)
-        self._MeInBin = self._Me.Clone(self.MeWithCutName)
-
-        if self._HistDimension == 1:
-            if self._Bins[0]:
-                self._SeInBin.GetXaxis().SetRangeUser(
-                    self._Bins[0][0], self._Bins[0][1]
-                )
-                self._MeInBin.GetXaxis().SetRangeUser(
-                    self._Bins[0][0], self._Bins[0][1]
-                )
-        elif self._HistDimension == 2:
-            if self._Bins[0]:
-                self._SeInBin.GetXaxis().SetRangeUser(
-                    self._Bins[0][0], self._Bins[0][1]
-                )
-                self._MeInBin.GetXaxis().SetRangeUser(
-                    self._Bins[0][0], self._Bins[0][1]
-                )
-            if self._Bins[1]:
-                self._SeInBin.GetYaxis().SetRangeUser(
-                    self._Bins[1][0], self._Bins[1][1]
-                )
-                self._MeInBin.GetYaxis().SetRangeUser(
-                    self._Bins[1][0], self._Bins[1][1]
-                )
-        elif self._HistDimension == 3:
-            if self._Bins[0]:
-                self._SeInBin.GetXaxis().SetRangeUser(
-                    self._Bins[0][0], self._Bins[0][1]
-                )
-                self._MeInBin.GetXaxis().SetRangeUser(
-                    self._Bins[0][0], self._Bins[0][1]
-                )
-            if self._Bins[1]:
-                self._SeInBin.GetYaxis().SetRangeUser(
-                    self._Bins[1][0], self._Bins[1][1]
-                )
-                self._MeInBin.GetYaxis().SetRangeUser(
-                    self._Bins[1][0], self._Bins[1][1]
-                )
-            if self._Bins[2]:
-                self._SeInBin.GetZaxis().SetRangeUser(
-                    self._Bins[2][0], self._Bins[2][1]
-                )
-                self._MeInBin.GetZaxis().SetRangeUser(
-                    self._Bins[2][0], self._Bins[2][1]
-                )
-        else:
-            for dim, cut in enumerate(self._Bins):
-                if cut:
-                    BinLow = self._SeInBin.GetAxis(dim).FindBin(cut[0])
-                    BinHigh = cu.FindBinWithUpperEdgeDetection(
-                        self._SeInBin.GetAxis(dim), cut[1]
-                    )
-                    self._SeInBin.GetAxis(dim).SetRange(BinLow, BinHigh)
-                    self._MeInBin.GetAxis(dim).SetRange(BinLow, BinHigh)
-
-    def DoProjections(self):
-        """
-        Project SE and ME onto 1d Histogram (kstar axis)
-        """
-        logger.debug(
-            "Project SE/ME (Dim=%d) onto kstar axis (Index=%d)",
-            self._HistDimension,
-            self._IndexAxisKstar,
-        )
-
-        # use cuts if they are defined
-        if self._Bins is None:
-            Se = self._Se
-            Me = self._Me
-        else:
-            Se = self._SeInBin
-            Me = self._MeInBin
-
-        if self._HistDimension == 1:
-            self._Se1d = Se.Clone(self.Se1dName)
-            self._Me1d = Me.Clone(self.Me1dName)
-
-        elif self._HistDimension == 2:
-            self._Se1d = cu.Proj2dTo1d(Se, self._IndexAxisKstar, self.Se1dName)
-            self._Me1d = cu.Proj2dTo1d(Me, self._IndexAxisKstar, self.Me1dName)
-
-        elif self._HistDimension == 3:
-            self._Se1d = cu.Proj3dTo1d(Se, self._IndexAxisKstar, self.Se1dName)
-            self._Me1d = cu.Proj3dTo1d(Me, self._IndexAxisKstar, self.Me1dName)
-        else:
-            self._Se1d = cu.ProjNdTo1d(Se, self._IndexAxisKstar, self.Se1dName)
-            self._Me1d = cu.ProjNdTo1d(Me, self._IndexAxisKstar, self.Me1dName)
-
-    def DoProjectionsWithRw(self):
-        """
-        Project SE and ME onto 2d (kstar vs reweight) Histogram and 1d (kstar) axis Histogram
-        """
-        logger.debug(
-            "Project SE/ME (Dim=%d) onto kstar axis (Index=%d) vs reweight axis (Index=%d)",
-            self._HistDimension,
-            self._IndexAxisKstar,
-            self._IndexAxisReweight,
-        )
-
-        # use cuts if they are defined
-        if self._Bins is None:
-            Se = self._Se
-            Me = self._Me
-        else:
-            Se = self._SeInBin
-            Me = self._MeInBin
-
-        # if reweighting is activated, SE/ME need to hava at least 2 dimensions
-        if self._HistDimension == 2:
-            # Swap x and y axis in case kstar axis is not index 0
-            self._Se2d = cu.Proj2dTo2d(
-                Se, self._IndexAxisKstar, self._IndexAxisReweight, self.Se2dName
-            )
-            self._Me2d = cu.Proj2dTo2d(
-                Me, self._IndexAxisKstar, self._IndexAxisReweight, self.Me2dName
-            )
-
-        elif self._HistDimension == 3:
-            self._Se2d = cu.Proj3dTo2d(
-                Se, self._IndexAxisKstar, self._IndexAxisReweight, self.Se2dName
-            )
-            self._Me2d = cu.Proj3dTo2d(
-                Me, self._IndexAxisKstar, self._IndexAxisReweight, self.Me2dName
-            )
-        else:
-            self._Se2d = cu.ProjNdTo2d(
-                Se, self._IndexAxisKstar, self._IndexAxisReweight, self.Se2dName
-            )
-            self._Me2d = cu.ProjNdTo2d(
-                Me, self._IndexAxisKstar, self._IndexAxisReweight, self.Me2dName
-            )
+        logger.debug("Reweight ME distribution")
 
         # reweight kstar vs reweight 2d histograms (kstar axis is x axis)
-        self._Me2dRw = cu.Reweight2d(self._Se2d, self._Me2d, self.Me2dRwName)
+        self._me_2d_reweighted = cu.Reweight2d(
+            self._se_2d, self._me_2d, self.me_2d_reweighted_name
+        )
         # project onto kstar on x axis (-> index 0)
-        self._Me1dRw = cu.Proj2dTo1d(self._Me2dRw, 0, self.Me1dRwName)
+        self._me_1d_reweighted = cu.Proj2dTo1d(
+            self._me_2d_reweighted, 0, self.me_1d_reweighted_name
+        )
+
+        if self._rebinning:
+            self._me_2d_noRebin_reweighted = cu.Reweight2d(
+                self._se_2d_noRebin, self._me_2d_noRebin, self.me_2d_reweighted_noRebin_name
+            )
+            self._me_1d_noRebin_reweighted = cu.Proj2dTo1d(
+                self._me_2d_reweighted, 0, self.me_1d_reweighted_noRebin_name
+            )
 
     def DoCorrelations(self):
         """
         Compute correlation functions
         """
         logger.debug("Compute correlation functions")
-        self._Cf = self._Se1d.Clone(self.CfName)
+        self._cf = self._se_1d.Clone(self.cf_name)
         # active Sumw2 if not already for error computation
-        if self._Cf.GetSumw2N() == 0:
-            self._Cf.Sumw2(True)
-        self._Cf.Divide(self._Me1d)
-        if self._IndexAxisReweight is not None:
-            self._CfRw = self._Se1d.Clone(self.CfRwName)
+        if self._cf.GetSumw2N() == 0:
+            self._cf.Sumw2(True)
+        self._cf.Divide(self._me_1d)
+
+        if self._reweighting:
+            self._cf_reweighted = self._se_1d.Clone(self.cf_reweighted_name)
             # active Sumw2 if not already for error computation
-            if self._CfRw.GetSumw2N() == 0:
-                self._CfRw.Sumw2(True)
-            self._CfRw.Divide(self._Me1dRw)
+            if self._cf_reweighted.GetSumw2N() == 0:
+                self._cf_reweighted.Sumw2(True)
+            self._cf_reweighted.Divide(self._me_1d_reweighted)
 
     def DoNormalizations(self):
         """
         Normalize correlation function and SE/ME in normalization range
         """
         logger.debug("Normalize correlation functions")
-        self._Se1dNorm = cu.Normalize(
-            self._Se1d.Clone(self.Se1dNormName), self._NormRange
+        self._se_1d_normalized = cu.Normalize(
+            self._se_1d.Clone(self.s1_1d_normalized_name), self._normalization_range
         )
-        self._Me1dNorm = cu.Normalize(
-            self._Me1d.Clone(self.Me1dNormName), self._NormRange
+        self._me_1d_normalized = cu.Normalize(
+            self._me_1d.Clone(self.me_1d_normalized_name), self._normalization_range
         )
-        self._Cf = cu.Normalize(self._Cf, self._NormRange)
+        self._cf = cu.Normalize(self._cf, self._normalization_range)
 
-        if self._IndexAxisReweight is not None:
-            self._Me1dRwNorm = cu.Normalize(
-                self._Me1dRw.Clone(self.Me1dRwNormName), self._NormRange
+        if self._reweighting:
+            self._me_1d_reweighed_normalized = cu.Normalize(
+                self._me_1d_reweighted.Clone(self.me_1d_reweighted_normalized_name),
+                self._normalization_range,
             )
-            self._CfRw = cu.Normalize(self._CfRw, self._NormRange)
+            self._cf_reweighted = cu.Normalize(
+                self._cf_reweighted, self._normalization_range
+            )
 
+    def DoRecenter(self):
+        """
+        Generate TGraphError for correlation function, recentering bins with ME
+        """
+        logger.debug("Compute recentered correlation function")
+
+        Nbins = self._cf.GetNbinsX()
+
+        BinCenterX = []
+        BinErrorX = []
+        BinCenterY = []
+        BinErrorY = []
+
+        for bin in range(1, Nbins + 1):
+            value = 0
+            norm = 0
+            error = 0
+            for bins in range(
+                1 + (bin - 1) * self._rebin_kstar, bin * self._rebin_kstar
+            ):
+                value = value + self._me_1d_noRebin.GetBinCenter(
+                    bins
+                ) * self._me_1d_noRebin.GetBinContent(bins)
+                norm = norm + self._me_1d_noRebin.GetBinContent(bins)
+            value = value / norm
+            for bins in range(
+                1 + (bin - 1) * self._rebin_kstar, bin * self._rebin_kstar
+            ):
+                error = error + self._me_1d_noRebin.GetBinContent(bins) * np.power(
+                    self._me_1d_noRebin.GetBinCenter(bins) - value, 2
+                )
+            BinCenterX.append(value)
+            BinErrorX.append(np.sqrt(error / norm))
+            BinCenterY.append(self._cf.GetBinContent(bin))
+            BinErrorY.append(self._cf.GetBinError(bin))
+
+        BinCenterX = np.array(BinCenterX, dtype=ct.c_double)
+        BinErrorX = np.array(BinErrorX, dtype=ct.c_double)
+        BinCenterY = np.array(BinCenterY, dtype=ct.c_double)
+        BinErrorY = np.array(BinErrorY, dtype=ct.c_double)
+
+        self._cf_recentered = rt.TGraphErrors(
+            Nbins, BinCenterX, BinCenterY, BinErrorX, BinErrorY
+        )
 
     def ManageHistograms(self):
         """
         Call SetDirectory(0) on all histograms to obtain ownership
         """
-        logger.debug("Gain ownership of histograms")
-        if self._InheritsTH1:
-            self._Se.SetDirectory(0)
-            self._Me.SetDirectory(0)
-            if self._Bins is not None:
-                self._SeInBin.SetDirectory(0)
-                self._MeInBin.SetDirectory(0)
+        logger.debug("Gain explicit ownership of all histograms")
 
-        self._Se2d.SetDirectory(0)
-        self._Me2d.SetDirectory(0)
-        self._Se1d.SetDirectory(0)
-        self._Se1dNorm.SetDirectory(0)
-        self._Me1d.SetDirectory(0)
-        self._Me1dNorm.SetDirectory(0)
-        self._Cf.SetDirectory(0)
+        if self._inheritsTH1:
+            self._se.SetDirectory(0)
+            self._me.SetDirectory(0)
+            if self._setRanges:
+                self._se_inRange.SetDirectory(0)
+                self._me_inRange.SetDirectory(0)
 
-        if self._IndexAxisReweight is not None:
-            self._Me2dRw.SetDirectory(0)
-            self._Me1dRw.SetDirectory(0)
-            self._Me1dRwNorm.SetDirectory(0)
-            self._CfRw.SetDirectory(0)
+        self._se_1d.SetDirectory(0)
+        self._se_1d_normalized.SetDirectory(0)
+        self._me_1d.SetDirectory(0)
+        self._me_1d_normalized.SetDirectory(0)
+        self._cf.SetDirectory(0)
+
+        if self._reweighting:
+            self._se_2d.SetDirectory(0)
+            self._me_2d.SetDirectory(0)
+
+            self._me_2d_reweighted.SetDirectory(0)
+            self._me_1d_reweighted.SetDirectory(0)
+            self._me_1d_reweighed_normalized.SetDirectory(0)
+            self._cf_reweighted.SetDirectory(0)
 
     def FinalTouch(self):
         """
         Run all steps to generate correlation function
         """
-        logger.debug("Final Touch")
-        # rebin kstar axis
-        if self._RebinFactorKstarAxis is not None:
+        logger.debug("Running Final Touch")
+        # rebin se/me distribution
+        if self._rebinning:
             self.DoRebin()
         # apply cuts if defined
-        if self._Bins is not None:
-            self.DoCuts()
+        if self._setRanges:
+            self.DoRangeLimits()
         # do projections onto kstar axis
-        self.DoProjections()
+        self.DoProjections1d()
         # do projections onto kstar vs reweight axis if reweight axis is defined
-        if self._IndexAxisReweight is not None:
-            self.DoProjectionsWithRw()
+        if self._reweighting:
+            self.DoProjections2d()
+        # rebin projected histograms
+        if self._rebinning:
+            self.DoRebin()
+        # compute reweighted mixed event distributions
+        if self._reweighting:
+            self.DoReweight()
         # compute correlation function
         self.DoCorrelations()
         # normalize correlation function/distributions
         self.DoNormalizations()
+        # recenter correlation function if rebinned
+        if self._rebinning:
+            self.DoRecenter()
         # gain ownership of all histograms
         self.ManageHistograms()
 
@@ -497,33 +523,37 @@ class CorrelationHandler:
         logger.debug("Save output to TDirectoryFile: %s", TdirFile.GetName())
         # create subdirectory for same event
         DirSe = rt.TDirectoryFile("SE", "SE", "", TdirFile)
-        DirSe.Add(self._Se, True)
-        if self._Bins is not None:
-            DirSe.Add(self._SeInBin, True)
-        if self._IndexAxisReweight is not None:
-            DirSe.Add(self._Se2d, True)
-        DirSe.Add(self._Se1d, True)
-        DirSe.Add(self._Se1dNorm, True)
+        DirSe.Add(self._se, True)
+        if self._setRanges:
+            DirSe.Add(self._se_inRange, True)
+        if self._reweighting:
+            print("yash")
+            print(self._se_2d.GetMean(2))
+            DirSe.Add(self._se_2d, True)
+        DirSe.Add(self._se_1d, True)
+        DirSe.Add(self._se_1d_normalized, True)
 
         # create subdirectory for mixed event
         DirMe = rt.TDirectoryFile("ME", "ME", "", TdirFile)
-        DirMe.Add(self._Me, True)
-        if self._Bins is not None:
-            DirMe.Add(self._MeInBin, True)
-        if self._IndexAxisReweight is not None:
-            DirMe.Add(self._Me2d, True)
-            DirMe.Add(self._Me2dRw, True)
-        DirMe.Add(self._Me1d, True)
-        DirMe.Add(self._Me1dNorm, True)
-        if self._IndexAxisReweight is not None:
-            DirMe.Add(self._Me1dRw, True)
-            DirMe.Add(self._Me1dRwNorm, True)
+        DirMe.Add(self._me, True)
+        if self._setRanges:
+            DirMe.Add(self._me_inRange, True)
+        if self._reweighting:
+            DirMe.Add(self._me_2d, True)
+            DirMe.Add(self._me_2d_reweighted, True)
+        DirMe.Add(self._me_1d, True)
+        DirMe.Add(self._me_1d_normalized, True)
+        if self._reweighting:
+            DirMe.Add(self._me_1d_reweighted, True)
+            DirMe.Add(self._me_1d_reweighed_normalized, True)
 
         # create subdirectory for correlation function
         DirCf = rt.TDirectoryFile("CF", "CF", "", TdirFile)
-        DirCf.Add(self._Cf, True)
-        if self._IndexAxisReweight is not None:
-            DirCf.Add(self._CfRw, True)
+        DirCf.Add(self._cf, True)
+        if self._index_reweight is not None:
+            DirCf.Add(self._cf_reweighted, True)
+        if self._rebinning:
+            DirCf.Add(self._cf_recentered, True)
 
         DirSe.Write()
         DirMe.Write()

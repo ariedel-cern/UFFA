@@ -195,19 +195,3 @@ def Normalize(Dist, range):
     except:
         print("Integral in normalization range is zero")
     return Dist
-
-
-def FindBinWithUpperEdgeDetection(Axis, Value):
-    """
-    Find bin of a TAxis for a given value with edge detection
-    Args:
-        Axis (TAxis): Axis with bins
-        Value (float): Value whose bin is being searched
-
-    Returns:
-
-    """
-    FoundBin = Axis.FindBin(Value)
-    if Value == Axis.GetBinLowEdge(FoundBin) and FoundBin != 1:
-        FoundBin -= 1
-    return FoundBin
