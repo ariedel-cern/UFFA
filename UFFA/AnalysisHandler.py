@@ -15,7 +15,7 @@ class AnalysisHandler:
     AnalysisHandler class
     """
 
-    def __init__(self, AnalysisDict):
+    def __init__(self, analysis_dict):
         """
         AnalysisHandler constructor
 
@@ -24,81 +24,81 @@ class AnalysisHandler:
         """
 
         # declare class variables
-        self._InputFileName = None
-        self._InputFile = None
-        self._OutputFileName = None
-        self._OutputFile = None
-        self._OutputDirName = None
-        self._PathSe = None
-        self._PathMe = None
-        self._NormRange = None
-        self._RebinFaktorKstarAxis = None
-        self._IndexKstarAxis = None
-        self._IndexReweightAxis = None
-        self._BinList = None
+        self._input_file_name = None
+        self._input_file = None
+        self._output_file_name = None
+        self._output_file = None
+        self._output_dir_name = None
+        self._path_se = None
+        self._path_me = None
+        self._normalization_range = None
+        self._rebin_kstar = None
+        self._axis_kstar = None
+        self._axis_reweight = None
+        self._ranges = None
 
-        self._NConfigs = 1
-        self._ConfigList = []
-        self._HandlerList = []
+        self._number_configs = 1
+        self._config_list = []
+        self._handler_list = []
 
         # Check input file
-        au.CheckDictEntry(AnalysisDict, "Input_File", str)
-        self._InputFileName = AnalysisDict["Input_File"]
+        au.CheckDictEntry(analysis_dict, "Input_File", str)
+        self._input_file_name = analysis_dict["Input_File"]
 
-        if not rt.gSystem.AccessPathName(self._InputFileName):
-            self._InputFile = rt.TFile(self._InputFileName, "READ")
-            logger.debug("Opened input file: %s", self._InputFileName)
+        if not rt.gSystem.AccessPathName(self._input_file_name):
+            self._input_file = rt.TFile(self._input_file_name, "READ")
+            logger.debug("Opened input file: %s", self._input_file_name)
         else:
-            raise ValueError(f"{self._InputFileName} does not exist")
+            raise ValueError(f"{self._input_file_name} does not exist")
 
-        au.CheckDictEntry(AnalysisDict, "Output_File", str)
-        self._OutputFileName = AnalysisDict["Output_File"]
+        au.CheckDictEntry(analysis_dict, "Output_File", str)
+        self._output_file_name = analysis_dict["Output_File"]
         # logger.debug("(Re)created output file: %s", self._OutputFileName)
 
         # check name of output TDirectoryFile
-        au.CheckDictEntry(AnalysisDict, "Output_Dir", str)
-        self._OutputDirName = AnalysisDict["Output_Dir"]
-        logger.debug("Name for TDirectoryFile in output file: %s", self._OutputDirName)
+        au.CheckDictEntry(analysis_dict, "Output_Dir", str)
+        self._output_dir_name = analysis_dict["Output_Dir"]
+        logger.debug("Name for TDirectoryFile in output file: %s", self._output_dir_name)
 
         # check same event distribution
-        au.CheckDictEntry(AnalysisDict, "Path_SE", str)
-        self._PathSe = AnalysisDict["Path_SE"]
-        self._Se = self._InputFile.Get(self._PathSe)
+        au.CheckDictEntry(analysis_dict, "Path_SE", str)
+        self._path_se = analysis_dict["Path_SE"]
+        self._Se = self._input_file.Get(self._path_se)
         if self._Se == None:
             raise ValueError(
-                f"Same event distribution not found. Is '{self._PathSe}' the correct path?"
+                f"Same event distribution not found. Is '{self._path_se}' the correct path?"
             )
         logger.debug(
-            "Same event distribution retrieved from input file: %s", self._PathSe
+            "Same event distribution retrieved from input file: %s", self._path_se
         )
 
         # check mixed event distribution
-        au.CheckDictEntry(AnalysisDict, "Path_ME", str)
-        self._PathMe = AnalysisDict["Path_ME"]
-        self._Me = self._InputFile.Get(self._PathMe)
+        au.CheckDictEntry(analysis_dict, "Path_ME", str)
+        self._path_me = analysis_dict["Path_ME"]
+        self._Me = self._input_file.Get(self._path_me)
         if self._Me == None:
             raise ValueError(
-                f"Mixed event distribution not found. Is '{self._PathMe}' the correct path?"
+                f"Mixed event distribution not found. Is '{self._path_me}' the correct path?"
             )
         logger.debug(
-            "Mixed event distribution retrieved from input file: %s", self._PathMe
+            "Mixed event distribution retrieved from input file: %s", self._path_me
         )
 
         # these are checked and logged later in CorrelationHandler class
-        au.CheckDictEntry(AnalysisDict, "Normalization_Range", tuple)
-        self._NormRange = AnalysisDict["Normalization_Range"]
+        au.CheckDictEntry(analysis_dict, "Normalization_Range", tuple)
+        self._normalization_range = analysis_dict["Normalization_Range"]
 
-        au.CheckDictEntry(AnalysisDict, "Rebin_Factor_Kstar_Axis", int)
-        self._RebinFaktorKstarAxis = AnalysisDict["Rebin_Factor_Kstar_Axis"]
+        au.CheckDictEntry(analysis_dict, "Rebin_Factor_Kstar_Axis", int)
+        self._rebin_kstar = analysis_dict["Rebin_Factor_Kstar_Axis"]
 
-        au.CheckDictEntry(AnalysisDict, "Index_Kstar_Axis", int)
-        self._IndexKstarAxis = AnalysisDict["Index_Kstar_Axis"]
+        au.CheckDictEntry(analysis_dict, "Index_Kstar_Axis", int)
+        self._axis_kstar = analysis_dict["Index_Kstar_Axis"]
 
-        au.CheckDictEntry(AnalysisDict, "Index_Reweight_Axis", int)
-        self._IndexReweightAxis = AnalysisDict["Index_Reweight_Axis"]
+        au.CheckDictEntry(analysis_dict, "Index_Reweight_Axis", int)
+        self._axis_reweight = analysis_dict["Index_Reweight_Axis"]
 
-        au.CheckDictEntry(AnalysisDict, "Bins", list)
-        self._BinList = AnalysisDict["Bins"]
+        au.CheckDictEntry(analysis_dict, "Bins", list)
+        self._ranges = analysis_dict["Bins"]
 
     def ProcessHandler(self, Index):
         """
@@ -112,11 +112,11 @@ class AnalysisHandler:
         Handler = ch.CorrelationHandler(
             self._Se,
             self._Me,
-            self._NormRange,
-            self._RebinFaktorKstarAxis,
-            self._IndexKstarAxis,
-            self._IndexReweightAxis,
-            self._ConfigList[Index],
+            self._normalization_range,
+            self._rebin_kstar,
+            self._axis_kstar,
+            self._axis_reweight,
+            self._config_list[Index],
         )
         Handler.FinalTouch()
         return Handler
@@ -136,14 +136,14 @@ class AnalysisHandler:
             if workers <= 0:
                 workers = os.cpu_count()
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-                self._HandlerList = list(
+                self._handler_list = list(
                     executor.map(
-                        self.ProcessHandler, [i for i in range(self._NConfigs)]
+                        self.ProcessHandler, [i for i in range(self._number_configs)]
                     )
                 )
         else:
-            for i in range(self._NConfigs):
-                self._HandlerList.append(self.ProcessHandler(i))
+            for i in range(self._number_configs):
+                self._handler_list.append(self.ProcessHandler(i))
 
         self.SaveToOutput(parallel, workers)
 
@@ -157,7 +157,7 @@ class AnalysisHandler:
             return [lst[i : i + 2] for i in range(len(lst) - 1)]
 
         processed_sublists = []
-        for sublist in self._BinList:
+        for sublist in self._ranges:
             # Process bins for each dimension
             # If more than 2 edges are defined, there is more than 1 bin
             if len(sublist) > 2:
@@ -170,10 +170,10 @@ class AnalysisHandler:
         # Generate all combinations using Cartesian product
         combinations = list(itertools.product(*processed_sublists))
         # CorrelationHandler expects list of tuples, so transfrom lists to tuples
-        self._ConfigList = [
+        self._config_list = [
             [tuple(inner_list) for inner_list in sublist] for sublist in combinations
         ]
-        self._NConfigs = len(self._ConfigList)
+        self._number_configs = len(self._config_list)
 
     def GetConfigName(self, index):
         """
@@ -183,7 +183,7 @@ class AnalysisHandler:
             index (int): Index of the configuration
         """
         # get configuration at passed index
-        Config = self._ConfigList[index]
+        Config = self._config_list[index]
         ConfigName = ""
         for i, e in enumerate(Config):
             # only add parts to a name if there is a bin defined for a dimension
@@ -208,7 +208,7 @@ class AnalysisHandler:
         HandlerOutputDir = rt.TDirectoryFile(
             self.GetConfigName(index), self.GetConfigName(index), "", self._OutputDir
         )
-        self._HandlerList[index].SaveOutput(HandlerOutputDir)
+        self._handler_list[index].SaveOutput(HandlerOutputDir)
 
     def SaveToOutput(self, parallel=False, workers=-1):
         """
@@ -217,9 +217,9 @@ class AnalysisHandler:
             parallel (bool): Save analysis output in parallel if true
             workers (int): Number of launched threads(!). If number is less then 0, use all avaiable cores.
         """
-        OutputFile = rt.TFile(self._OutputFileName, "RECREATE")
+        OutputFile = rt.TFile(self._output_file_name, "RECREATE")
         self._OutputDir = rt.TDirectoryFile(
-            self._OutputDirName, self._OutputDirName, "", OutputFile
+            self._output_dir_name, self._output_dir_name, "", OutputFile
         )
 
         if parallel == True:
@@ -227,19 +227,19 @@ class AnalysisHandler:
                 workers = os.cpu_count()
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 executor.map(
-                    self.SaveHandler, [index for index in range(self._NConfigs)]
+                    self.SaveHandler, [index for index in range(self._number_configs)]
                 )
         else:
-            for index in range(self._NConfigs):
+            for index in range(self._number_configs):
                 HandlerOutputDir = rt.TDirectoryFile(
                     self.GetConfigName(index),
                     self.GetConfigName(index),
                     "",
                     self._OutputDir,
                 )
-                self._HandlerList[index].SaveOutput(HandlerOutputDir)
+                self._handler_list[index].SaveOutput(HandlerOutputDir)
 
-        self._OutputDir.Write(self._OutputDirName, rt.TObject.kSingleKey)
+        self._OutputDir.Write(self._output_dir_name, rt.TObject.kSingleKey)
 
         OutputFile.Save()
         OutputFile.Close()
