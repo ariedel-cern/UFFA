@@ -1,5 +1,6 @@
 import ROOT as rt
 
+
 def FindBinWithUpperEdgeDetection(Axis, Value):
     """
     Find bin of a TAxis for a given value with edge detection
@@ -15,6 +16,7 @@ def FindBinWithUpperEdgeDetection(Axis, Value):
         FoundBin -= 1
     return FoundBin
 
+
 def GetHistDimension(hist):
     """
     Return Dimensions of histogram
@@ -29,6 +31,7 @@ def GetHistDimension(hist):
         return 1
     else:
         return 0
+
 
 def SetHistRanges(hist, ranges):
     """

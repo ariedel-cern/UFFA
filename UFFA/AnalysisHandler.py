@@ -6,6 +6,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from . import CorrelationHandler as ch
 from .Utils import AnalysisUtils as au
+from .Utils import CorrelationUtils as cu
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +33,12 @@ class AnalysisHandler:
         self._path_se = None
         self._path_me = None
         self._normalization_range = None
-        self._rebin_kstar = None
         self._axis_kstar = None
         self._axis_reweight = None
         self._ranges = None
 
-        self._number_configs = 1
+        self._rebin_list = []
+        self._range_list = []
         self._config_list = []
         self._handler_list = []
 
@@ -53,12 +54,13 @@ class AnalysisHandler:
 
         au.CheckDictEntry(analysis_dict, "Output_File", str)
         self._output_file_name = analysis_dict["Output_File"]
-        # logger.debug("(Re)created output file: %s", self._OutputFileName)
 
         # check name of output TDirectoryFile
         au.CheckDictEntry(analysis_dict, "Output_Dir", str)
         self._output_dir_name = analysis_dict["Output_Dir"]
-        logger.debug("Name for TDirectoryFile in output file: %s", self._output_dir_name)
+        logger.debug(
+            "Name for TDirectoryFile in output file: %s", self._output_dir_name
+        )
 
         # check same event distribution
         au.CheckDictEntry(analysis_dict, "Path_SE", str)
@@ -88,8 +90,10 @@ class AnalysisHandler:
         au.CheckDictEntry(analysis_dict, "Normalization_Range", tuple)
         self._normalization_range = analysis_dict["Normalization_Range"]
 
-        au.CheckDictEntry(analysis_dict, "Rebin_Factor_Kstar_Axis", int)
-        self._rebin_kstar = analysis_dict["Rebin_Factor_Kstar_Axis"]
+        # au.CheckDictEntry(analysis_dict, "Rebin_Factor_Kstar_Axis", int)
+        self._rebin_list = analysis_dict["Rebin_Factor_Kstar_Axis"]
+        if not self._rebin_list:
+            self._rebin_list = [1]
 
         au.CheckDictEntry(analysis_dict, "Index_Kstar_Axis", int)
         self._axis_kstar = analysis_dict["Index_Kstar_Axis"]
@@ -98,13 +102,13 @@ class AnalysisHandler:
         self._axis_reweight = analysis_dict["Index_Reweight_Axis"]
 
         au.CheckDictEntry(analysis_dict, "Bins", list)
-        self._ranges = analysis_dict["Bins"]
+        self._range_list = analysis_dict["Bins"]
 
-    def ProcessHandler(self, Index):
+    def ProcessHandler(self, index):
         """
         Process CorrelationHandler
         Args:
-            Index (int): Index of configuration
+            index (int): index of configuration
 
         Returns:
             CorrelationHandler object that has been processed (i.e. correlation function has been computed)
@@ -113,12 +117,13 @@ class AnalysisHandler:
             self._Se,
             self._Me,
             self._normalization_range,
-            self._rebin_kstar,
+            self._config_list[index]["Rebin"],
             self._axis_kstar,
             self._axis_reweight,
-            self._config_list[Index],
+            self._config_list[index]["Ranges"],
         )
         Handler.FinalTouch()
+
         return Handler
 
     def SteerAnalysis(self, parallel=False, workers=-1):
@@ -129,8 +134,8 @@ class AnalysisHandler:
             workers (int): Number of launched processes. If number is less then 0, use all avaiable cores
         """
 
-        # split bins to get all configurations
-        self.SplitBins()
+        # generate all configurations, i.e. all rebins and all ranges
+        self.GenerateConfigurations()
 
         if parallel == True:
             if workers <= 0:
@@ -138,64 +143,66 @@ class AnalysisHandler:
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
                 self._handler_list = list(
                     executor.map(
-                        self.ProcessHandler, [i for i in range(self._number_configs)]
+                        self.ProcessHandler, [i for i in range(len(self._config_list))]
                     )
                 )
         else:
-            for i in range(self._number_configs):
+            for i in range(len(self._config_list)):
                 self._handler_list.append(self.ProcessHandler(i))
 
         self.SaveToOutput(parallel, workers)
 
-    def SplitBins(self):
+    def GenerateConfigurations(self):
         """
-        Split list of bins and generate a list of all configurations
+        Generate all configurations
         """
 
-        def split_into_pairs(lst):
-            """(Helper function) Split a list into consecutive pairs"""
-            return [lst[i : i + 2] for i in range(len(lst) - 1)]
+        # split all given ranges
+        range_list = []
+        if self._range_list is not None:
+            ranges = []
+            # loop over all dimensions
+            for r in self._range_list:
+                temp = []
+                # if only one range is defined, take it
+                if len(r) <= 2:
+                    temp.append(tuple(r))
+                # if we have more than 1, split it into upper and lower limits
+                else:
+                    for i in r(0, len(r), 2):
+                        temp.append(tuple(r[i : i + 2]))
+                ranges.append(temp)
+            # get all combinations
+            range_list = list(itertools.product(*ranges))
+        else:
+            range_list = [[]]
 
-        processed_sublists = []
-        for sublist in self._ranges:
-            # Process bins for each dimension
-            # If more than 2 edges are defined, there is more than 1 bin
-            if len(sublist) > 2:
-                # Split list into pairs
-                processed_sublists.append(split_into_pairs(sublist))
-            else:
-                # If there is only one bin keep the sublist as it is
-                processed_sublists.append([sublist])
+        # now get all combinations of ranges and rebins
+        for rebin in self._rebin_list:
+            for ranges in range_list:
+                d = {
+                    "Name": self.GetConfigName(rebin, ranges),
+                    "Rebin": rebin,
+                    "Ranges": ranges,
+                }
+                self._config_list.append(d)
 
-        # Generate all combinations using Cartesian product
-        combinations = list(itertools.product(*processed_sublists))
-        # CorrelationHandler expects list of tuples, so transfrom lists to tuples
-        self._config_list = [
-            [tuple(inner_list) for inner_list in sublist] for sublist in combinations
-        ]
-        self._number_configs = len(self._config_list)
-
-    def GetConfigName(self, index):
+    def GetConfigName(self, rebin, ranges):
         """
         Generate a name for a configuration
         Name will be given to the TDirectoryFile used to store the output of configuration with given index
         Args:
-            index (int): Index of the configuration
+            rebin (int): Rebin factor
+            range (list): list of ranges
         """
-        # get configuration at passed index
-        Config = self._config_list[index]
-        ConfigName = ""
-        for i, e in enumerate(Config):
-            # only add parts to a name if there is a bin defined for a dimension
-            if e:
-                # set name to the edged of the bin
-                ConfigName = ConfigName + f"{str(e[0])}-{str(e[1])}"
-                # add underscore if there follows another bin
-                if i < len(Config) - 1:
-                    ConfigName = ConfigName + "_"
-        # catch corner case where there are no cuts applied
-        if ConfigName == "":
-            ConfigName = "Analysis"
+        ConfigName = f"Rebin_{rebin}"
+
+        if ranges is not None:
+            for i, e in enumerate(ranges):
+                # only add parts to a name if there is a range defined for a dimension
+                if e:
+                    # set name to the edges of the bin
+                    ConfigName = ConfigName + f"_Dim_{i}-{str(e[0])}-{str(e[1])}"
         return ConfigName
 
     def SaveHandler(self, index):
@@ -203,10 +210,14 @@ class AnalysisHandler:
         Save CorrelationHandler
 
         Args:
-            index (int): Save output of configuration with given index to TDirectoryFile
+            dict (dictionary): Save output of configuration for given index pair. First element is the range and second index is the rebin
         """
+
         HandlerOutputDir = rt.TDirectoryFile(
-            self.GetConfigName(index), self.GetConfigName(index), "", self._OutputDir
+            self._config_list[index]["Name"],
+            self._config_list[index]["Name"],
+            "",
+            self._OutputDir,
         )
         self._handler_list[index].SaveOutput(HandlerOutputDir)
 
@@ -227,17 +238,11 @@ class AnalysisHandler:
                 workers = os.cpu_count()
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 executor.map(
-                    self.SaveHandler, [index for index in range(self._number_configs)]
+                    self.SaveHandler, [i for i in range(len(self._handler_list))]
                 )
         else:
-            for index in range(self._number_configs):
-                HandlerOutputDir = rt.TDirectoryFile(
-                    self.GetConfigName(index),
-                    self.GetConfigName(index),
-                    "",
-                    self._OutputDir,
-                )
-                self._handler_list[index].SaveOutput(HandlerOutputDir)
+            for i in range(len(self._handler_list)):
+                self.SaveHandler(i)
 
         self._OutputDir.Write(self._output_dir_name, rt.TObject.kSingleKey)
 

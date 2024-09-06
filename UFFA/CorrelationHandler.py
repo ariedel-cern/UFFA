@@ -29,13 +29,15 @@ class CorrelationHandler:
     me_1d_reweighted_normalized_name = "ME_Reweighted_Normalized"
     cf_name = "CF"
     cf_reweighted_name = "CF_Reweighted"
+    cf_recentered_name = "CF_Recentered"
+    cf_reweighted_recentered_name = "CF_Reweighted_Recentered"
 
     def __init__(
         self,
         se,
         me,
         normalization_range,
-        rebin_kstar=-1,
+        rebin_kstar=1,
         axis_kstar=0,
         axis_reweight=-1,
         ranges=[],
@@ -54,15 +56,14 @@ class CorrelationHandler:
         """
 
         # declaring all class variables
+        self._handler_noRebin = None  # in case the user wants to rebin, generate a handler which is not rebinned
         self._se = None  # original same event distribution
         self._me = None  # original mixed event distribution
         self._se_inRange = None  # same event distribution in range
         self._me_inRange = None  # mixed event distribution in range
         self._dim = None  # dimensions of SE/ME histograms
         self._axis_kstar = None  # kstar axis, axis are counted from 0
-        self._axis_reweight = (
-            None  # axis used for reweighting, axis are counted from 0
-        )
+        self._axis_reweight = None  # axis used for reweighting, axis are counted from 0
         self._se_2d = (
             None  # same event distribution projected down to kstar vs reweight axis
         )
@@ -70,9 +71,13 @@ class CorrelationHandler:
             None  # mixed event distribution projected down to kstar vs reweight axis
         )
         self._se_1d = None  # same event distribution projected down to kstar
-        self._se_1d_normalized = None  # same event distribution projected down to kstar (normalized)
+        self._se_1d_normalized = (
+            None  # same event distribution projected down to kstar (normalized)
+        )
         self._me_1d = None  # mixed event distribution projected down to kstar
-        self._me_1d_normalized = None  # mixed event distribution projected down to kstar, (normalized)
+        self._me_1d_normalized = (
+            None  # mixed event distribution projected down to kstar, (normalized)
+        )
         self._cf = None  # correlation function
         self._me_2d_reweighted = None  # mixed event distribution projected down to kstar vs reweight axis (reweighted)
         self._me_1d_reweighted = (
@@ -81,7 +86,7 @@ class CorrelationHandler:
         self._me_1d_reweighted_normalized = None  # mixed event distribution projected down to kstar (reweighted, normalized)
         self._cf_reweighted = None  # correlation function (reweighted)
         self._normalization_range = None  # normalization range
-        self._rebin_kstar = None # rebin factor for kstar
+        self._rebin_kstar = None  # rebin factor for kstar
         self._ranges = None  # list of ranges in each axis as tuples. If the tuple is empty (), no range is applied
         self._inheritsTH1 = False
 
@@ -108,8 +113,12 @@ class CorrelationHandler:
 
         # check that normalization range is passed as a tuple of floats
         assert isinstance(normalization_range, tuple), "NormRange is not an tuple"
-        assert isinstance(normalization_range[0], float), "Lower edge of NormRange is not a float"
-        assert isinstance(normalization_range[1], float), "Upper edge of NormRange is not a float"
+        assert isinstance(
+            normalization_range[0], float
+        ), "Lower edge of NormRange is not a float"
+        assert isinstance(
+            normalization_range[1], float
+        ), "Upper edge of NormRange is not a float"
         if normalization_range[0] > normalization_range[1]:
             raise ValueError(
                 f"Lower edge of NormRange is larger than the upper edge (%{normalization_range[0]}, {normalization_range[1]})"
@@ -142,9 +151,7 @@ class CorrelationHandler:
         # Check if reweighting is activated
         if axis_reweight >= 0:
             # assert index of reweight axis is an integer
-            assert isinstance(
-                axis_reweight, int
-            ), "IndexReweightAxis is not an integer"
+            assert isinstance(axis_reweight, int), "IndexReweightAxis is not an integer"
 
             # check that dimensions of histograms is larger than 1, otherwise reweighting is not possible
             if self._dim <= 1:
@@ -168,10 +175,8 @@ class CorrelationHandler:
             logger.debug("Provided index of reweight axis: %d", self._axis_reweight)
 
         # check type of rebin fator
-        if rebin_kstar > 0:
-            assert isinstance(
-                rebin_kstar, int
-            ), "Rebin factor is not an integer"
+        if rebin_kstar > 1:
+            assert isinstance(rebin_kstar, int), "Rebin factor is not an integer"
             self._rebin_kstar = rebin_kstar
             logger.debug("Provided rebin factor: %d", self._rebin_kstar)
 
@@ -208,6 +213,22 @@ class CorrelationHandler:
                 else:
                     logger.debug("No bin is configured in dimension %d", dim)
             self._ranges = ranges
+
+    def DoNoRebin(self):
+        """
+        Generate ME distribution without rebin to recenter correlation function
+        """
+        self._handler_noRebin = CorrelationHandler(
+            self._se,
+            self._me,
+            self._normalization_range,
+            1,
+            self._axis_kstar,
+            self._axis_reweight,
+            self._ranges,
+        )
+
+        self._handler_noRebin.FinalTouch()
 
     def DoRebin(self):
         """
@@ -252,8 +273,8 @@ class CorrelationHandler:
         self._se_inRange = self._se.Clone(self.se_inRange_name)
         self._me_inRange = self._me.Clone(self.me_inRange_name)
 
-        hu.SetHistRanges(self._se_inRange,self._ranges)
-        hu.SetHistRanges(self._me_inRange,self._ranges)
+        hu.SetHistRanges(self._se_inRange, self._ranges)
+        hu.SetHistRanges(self._me_inRange, self._ranges)
 
     def DoProjections(self):
         """
@@ -278,8 +299,6 @@ class CorrelationHandler:
             self._me_1d = me.Clone(self.me_1d_name)
 
         elif self._dim == 2:
-            print(se)
-            print(me)
             self._se_1d = cu.Proj2dTo1d(se, self._axis_kstar, self.se_1d_name)
             self._me_1d = cu.Proj2dTo1d(me, self._axis_kstar, self.me_1d_name)
 
@@ -335,9 +354,13 @@ class CorrelationHandler:
             )
 
         # reweight kstar vs reweight 2d histograms (kstar axis is x axis)
-        self._me_2d_reweighted = cu.Reweight2d(self._se_2d, self._me_2d, self.me_2d_reweighted_name)
+        self._me_2d_reweighted = cu.Reweight2d(
+            self._se_2d, self._me_2d, self.me_2d_reweighted_name
+        )
         # project onto kstar on x axis (-> index 0)
-        self._me_1d_reweighted = cu.Proj2dTo1d(self._me_2d_reweighted, 0, self.me_1d_reweighted_name)
+        self._me_1d_reweighted = cu.Proj2dTo1d(
+            self._me_2d_reweighted, 0, self.me_1d_reweighted_name
+        )
 
     def DoCorrelations(self):
         """
@@ -371,10 +394,27 @@ class CorrelationHandler:
 
         if self._axis_reweight is not None:
             self._me_1d_reweighted_normalized = cu.Normalize(
-                self._me_1d_reweighted.Clone(self.me_1d_reweighted_normalized_name), self._normalization_range
+                self._me_1d_reweighted.Clone(self.me_1d_reweighted_normalized_name),
+                self._normalization_range,
             )
-            self._cf_reweighted = cu.Normalize(self._cf_reweighted, self._normalization_range)
+            self._cf_reweighted = cu.Normalize(
+                self._cf_reweighted, self._normalization_range
+            )
 
+    def DoRecenter(self):
+        """
+        Generate TGraphError for correlation function, recentering bins with ME
+        """
+        logger.debug("Compute recentered correlation function")
+
+        self._cf_recentered = cu.RecenterCorrelationFunction(
+            self._cf, self._handler_noRebin.GetMe1D()
+        )
+        self._cf_recentered.SetName(self.cf_recentered_name)
+        self._cf_reweighted_recentered = cu.RecenterCorrelationFunction(
+            self._cf_reweighted, self._handler_noRebin.GetMe1DRw()
+        )
+        self._cf_reweighted_recentered.SetName(self.cf_reweighted_recentered_name)
 
     def ManageHistograms(self):
         """
@@ -409,6 +449,7 @@ class CorrelationHandler:
         logger.debug("Final Touch")
         # rebin kstar axis
         if self._rebin_kstar is not None:
+            self.DoNoRebin()
             self.DoRebin()
         # apply cuts if defined
         if self._ranges is not None:
@@ -422,6 +463,8 @@ class CorrelationHandler:
         self.DoCorrelations()
         # normalize correlation function/distributions
         self.DoNormalizations()
+        if self._rebin_kstar is not None:
+            self.DoRecenter()
         # gain ownership of all histograms
         self.ManageHistograms()
 
@@ -461,7 +504,22 @@ class CorrelationHandler:
         DirCf.Add(self._cf, True)
         if self._axis_reweight is not None:
             DirCf.Add(self._cf_reweighted, True)
+        if self._rebin_kstar:
+            DirCf.Add(self._cf_recentered, True)
+            if self._axis_reweight is not None:
+                DirCf.Add(self._cf_reweighted_recentered, True)
 
         DirSe.Write()
         DirMe.Write()
         DirCf.Write()
+
+        if self._rebin_kstar is not None:
+            DirNoRebin = rt.TDirectoryFile("No_Rebin", "No_Rebin", "", TdirFile)
+            self._handler_noRebin.SaveOutput(DirNoRebin)
+            DirNoRebin.Write()
+
+    def GetMe1D(self):
+        return self._me_1d
+
+    def GetMe1DRw(self):
+        return self._me_1d_reweighted
