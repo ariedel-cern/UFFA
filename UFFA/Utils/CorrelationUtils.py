@@ -199,7 +199,7 @@ def Normalize(distribution, range):
     return distribution
 
 
-def RecenterCorrelationFunction(cf, me):
+def Recenter(cf, me):
     """
     Recenter bins of the correlation function according to mixed event distribution
     """
@@ -219,13 +219,19 @@ def RecenterCorrelationFunction(cf, me):
         for bins in range(1 + (bin - 1) * rebin, bin * rebin):
             value = value + me.GetBinCenter(bins) * me.GetBinContent(bins)
             norm = norm + me.GetBinContent(bins)
-        value = value / norm
+        if norm > 0:
+            value = value / norm
+        else:
+            value = cf.GetBinCenter(bin)
         for bins in range(1 + (bin - 1) * rebin, bin * rebin):
             error = error + me.GetBinContent(bins) * np.power(
                 me.GetBinCenter(bins) - value, 2
             )
         BinCenterX.append(value)
-        BinErrorX.append(np.sqrt(error / norm))
+        if norm > 0:
+            BinErrorX.append(np.sqrt(error / norm))
+        else:
+            BinErrorX.append(cf.GetBinWidth(bin) / 2.0)
         BinCenterY.append(cf.GetBinContent(bin))
         BinErrorY.append(cf.GetBinError(bin))
 
@@ -235,3 +241,44 @@ def RecenterCorrelationFunction(cf, me):
     BinErrorY = np.array(BinErrorY, dtype=ct.c_double)
 
     return rt.TGraphErrors(Nbins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
+
+
+def RescaleHist(hist, scale, name):
+    """
+    Rescale x axis of TH1 histogram
+    """
+    bins = hist.GetNbinsX()
+    # Get the old axis range
+    x_min = hist.GetXaxis().GetXmin()
+    x_max = hist.GetXaxis().GetXmax()
+    # Create a new histogram with the rescaled axis
+    hist_rescaled = rt.TH1F(name, name, bins, x_min * scale, x_max * scale)
+    # Copy the contents of the old histogram to the new one
+    for i in range(1, bins + 1):
+        bin_content = hist.GetBinContent(i)
+        bin_error = hist.GetBinError(i)
+        hist_rescaled.SetBinContent(i, bin_content)
+        hist_rescaled.SetBinError(i, bin_error)
+    return hist_rescaled
+
+
+def RescaleGraph(graph, scale):
+    """
+    Rescale x axis of TGraphErrors
+    """
+    BinCenterX = []
+    BinErrorX = []
+    BinCenterY = []
+    BinErrorY = []
+    n_bins = graph.GetN()
+
+    for i in range(n_bins):
+        BinCenterX.append(graph.GetPointX(i) * scale)
+        BinErrorX.append(graph.GetErrorX(i) * scale)
+        BinCenterY.append(graph.GetPointY(i))
+        BinErrorY.append(graph.GetErrorY(i))
+    BinCenterX = np.array(BinCenterX, dtype=ct.c_double)
+    BinErrorX = np.array(BinErrorX, dtype=ct.c_double)
+    BinCenterY = np.array(BinCenterY, dtype=ct.c_double)
+    BinErrorY = np.array(BinErrorY, dtype=ct.c_double)
+    return rt.TGraphErrors(n_bins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)

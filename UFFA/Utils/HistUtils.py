@@ -58,5 +58,5 @@ def SetHistRanges(hist, ranges):
         for dim, cut in enumerate(ranges):
             if cut:
                 bin_low = hist.GetAxis(dim).FindBin(cut[0])
-                bin_high = FindBinWithUpperEdgeDetection(hist, cut[1])
+                bin_high = FindBinWithUpperEdgeDetection(hist.GetAxis(dim), cut[1])
                 hist.GetAxis(dim).SetRange(bin_low, bin_high)

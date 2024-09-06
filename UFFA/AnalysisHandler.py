@@ -1,5 +1,9 @@
 import ROOT as rt
+
+# rt.EnableThreadSafety()
+
 import itertools
+import pathlib
 import os
 import logging
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -34,8 +38,8 @@ class AnalysisHandler:
         self._path_me = None
         self._normalization_range = None
         self._axis_kstar = None
+        self._rescale_kstar = -1
         self._axis_reweight = None
-        self._ranges = None
 
         self._rebin_list = []
         self._range_list = []
@@ -65,7 +69,7 @@ class AnalysisHandler:
         # check same event distribution
         au.CheckDictEntry(analysis_dict, "Path_SE", str)
         self._path_se = analysis_dict["Path_SE"]
-        self._Se = self._input_file.Get(self._path_se)
+        self._Se = au.GetObjectFromFile(self._input_file, self._path_se)
         if self._Se == None:
             raise ValueError(
                 f"Same event distribution not found. Is '{self._path_se}' the correct path?"
@@ -77,7 +81,7 @@ class AnalysisHandler:
         # check mixed event distribution
         au.CheckDictEntry(analysis_dict, "Path_ME", str)
         self._path_me = analysis_dict["Path_ME"]
-        self._Me = self._input_file.Get(self._path_me)
+        self._Me = au.GetObjectFromFile(self._input_file, self._path_me)
         if self._Me == None:
             raise ValueError(
                 f"Mixed event distribution not found. Is '{self._path_me}' the correct path?"
@@ -97,6 +101,9 @@ class AnalysisHandler:
 
         au.CheckDictEntry(analysis_dict, "Index_Kstar_Axis", int)
         self._axis_kstar = analysis_dict["Index_Kstar_Axis"]
+
+        au.CheckDictEntry(analysis_dict, "Rescale_Factor_Kstar_Axis", int)
+        self._rescale_kstar = analysis_dict["Rescale_Factor_Kstar_Axis"]
 
         au.CheckDictEntry(analysis_dict, "Index_Reweight_Axis", int)
         self._axis_reweight = analysis_dict["Index_Reweight_Axis"]
@@ -118,6 +125,7 @@ class AnalysisHandler:
             self._Me,
             self._normalization_range,
             self._config_list[index]["Rebin"],
+            self._rescale_kstar,
             self._axis_kstar,
             self._axis_reweight,
             self._config_list[index]["Ranges"],
@@ -126,7 +134,7 @@ class AnalysisHandler:
 
         return Handler
 
-    def SteerAnalysis(self, parallel=False, workers=-1):
+    def SteerAnalysis(self, parallel=False, workers=0):
         """
         Steer analysis
         Args:
@@ -143,7 +151,7 @@ class AnalysisHandler:
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
                 self._handler_list = list(
                     executor.map(
-                        self.ProcessHandler, [i for i in range(len(self._config_list))]
+                        self.ProcessHandler, list(range(len(self._config_list)))
                     )
                 )
         else:
@@ -151,6 +159,8 @@ class AnalysisHandler:
                 self._handler_list.append(self.ProcessHandler(i))
 
         self.SaveToOutput(parallel, workers)
+
+        self._input_file.Close()
 
     def GenerateConfigurations(self):
         """
@@ -169,8 +179,8 @@ class AnalysisHandler:
                     temp.append(tuple(r))
                 # if we have more than 1, split it into upper and lower limits
                 else:
-                    for i in r(0, len(r), 2):
-                        temp.append(tuple(r[i : i + 2]))
+                    for i in range(0, len(r) - 1):
+                        temp.append((r[i], r[i + 1]))
                 ranges.append(temp)
             # get all combinations
             range_list = list(itertools.product(*ranges))
@@ -228,7 +238,12 @@ class AnalysisHandler:
             parallel (bool): Save analysis output in parallel if true
             workers (int): Number of launched threads(!). If number is less then 0, use all avaiable cores.
         """
-        OutputFile = rt.TFile(self._output_file_name, "RECREATE")
+        OutputFile = rt.TFile(self._output_file_name, "UPDATE")
+        # check first if a tdirectoryfile with the same name already exists
+        temp_dir = OutputFile.Get(self._output_dir_name)
+        if temp_dir is not None:
+            OutputFile.Delete(f"{self._output_dir_name};*")
+
         self._OutputDir = rt.TDirectoryFile(
             self._output_dir_name, self._output_dir_name, "", OutputFile
         )
@@ -237,14 +252,14 @@ class AnalysisHandler:
             if workers <= 0:
                 workers = os.cpu_count()
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                executor.map(
-                    self.SaveHandler, [i for i in range(len(self._handler_list))]
-                )
+                executor.map(self.SaveHandler, list(range(len(self._handler_list))))
         else:
             for i in range(len(self._handler_list)):
                 self.SaveHandler(i)
 
-        self._OutputDir.Write(self._output_dir_name, rt.TObject.kSingleKey)
+        self._OutputDir.Write(
+            self._output_dir_name, rt.TObject.kSingleKey + rt.TObject.kWriteDelete
+        )
 
         OutputFile.Save()
         OutputFile.Close()
