@@ -54,10 +54,11 @@ class CorrelationHandler:
             se (TH1/TH2/TH3/THnSparse): Same Event distribution
             me (same as SE): Mixed Event distribution
             normalization_range (tuple): Tuple containg upper and lower bound for normalization
-            rebin_kstar (int): Rebin factor of kstar axis (set to -1 to deactivate)
-            axis_kstar (int): Index of kstar axis (axis start counting from 0)
+            rebin_kstar (int): Rebin factor of kstar axis (set to 1 to deactivate)
+            rescale_kstar (float): Rescaling factor for kstar axis. It rescales the axis for the correlation functions only (set to 0 to deactivate)
+            axis_kstar (int): Index of kstar axis. Default is 0 (axis start counting from 0)
             axis_reweight (int): Index of axis to use for reweighting (axis start counting from 0, set to -1 to deactivate)
-            ranges (list of tuples): List of tuples to indicate bin for each axis in a tuple (Min,Max). Empty tuple () means no cut
+            ranges (list of tuples): List of tuples to indicate range for each axis in a tuple (Min,Max). Empty tuple () means full range
         """
 
         # declaring all class variables
@@ -120,7 +121,7 @@ class CorrelationHandler:
             raise TypeError("Histogram type of SE and ME do not match")
 
         # bool to check if Se/Me inherit from TH1 (i.e. do not inherit from THn)
-        # if this is true, call SetDirectory(0) so CorrelationHandler can manage histograms (otherwise the might be name clashes)
+        # if this is true, we call SetDirectory(0) at the end so CorrelationHandler can manage histograms
         if se.InheritsFrom(rt.TH1.Class()):
             self._inheritsTH1 = True
 
@@ -146,7 +147,7 @@ class CorrelationHandler:
             self._axis_kstar = axis_kstar
             logger.debug("Provided index of kstar axis: %d", self._axis_kstar)
 
-        # check that normalization range is passed as a tuple of floats
+        # set normalization range
         if len(normalization_range) == 2:
             if normalization_range[0] > normalization_range[1]:
                 raise ValueError(
@@ -187,25 +188,23 @@ class CorrelationHandler:
             self._do_reweight = True
             logger.debug("Provided index of reweight axis: %d", self._axis_reweight)
 
-        # check type of rebin fator
+        # check rebin fator
         if rebin_kstar > 1:
+            assert isinstance(rebin_kstar, int), "rebin_kstar is not an integer"
             self._rebin_kstar = rebin_kstar
             self._do_rebin = True
             logger.debug("Provided rebin factor: %d", self._rebin_kstar)
 
+        # check rescale factor
         if rescale_kstar > 0:
             self._rescale_kstar = rescale_kstar
             self._do_rescale = True
             logger.debug("Provided rescaling factor: %d", self._rescale_kstar)
 
+        # check supplied ranges
         if ranges:
             # check that provided list has the correct number of dimensions
             if len(ranges) != self._dim:
-                logger.critical(
-                    "Number of bins (=%d) and number of dimension (#=%d) do not match",
-                    len(ranges),
-                    self._dim,
-                )
                 raise ValueError(
                     f"Number of bins (={len(ranges)}) and number of dimension (={self._dim}) do not match"
                 )
@@ -213,7 +212,7 @@ class CorrelationHandler:
                 if bin:
                     if bin[0] > bin[1]:
                         raise ValueError(
-                            f"Lower edge of bin is larger than the upper edge ({bin[0]},{bin[1]})"
+                            f"Lower edge of range is larger than the upper edge ({bin[0]},{bin[1]}) in dimension {self._dim}"
                         )
                     logger.debug(
                         "Range (%f,%f) is configured in dimension %d",
@@ -222,14 +221,18 @@ class CorrelationHandler:
                         dim,
                     )
                 else:
-                    logger.debug("No bin is configured in dimension %d", dim)
+                    logger.debug(
+                        "No range is configured in dimension %d. Use full range", dim
+                    )
             self._do_ranges = True
             self._ranges = ranges
 
     def DoNoRebin(self):
         """
-        Generate ME distribution without rebin to recenter correlation function
+        Generate CorrelationHandler object where rebin is turned off.
+        With this object we can recentered the correlation function according to the ME distribution.
         """
+        logger.debug("Generated CorrelationHandler without rebinning")
         self._handler_noRebin = CorrelationHandler(
             self._se,
             self._me,
@@ -246,7 +249,7 @@ class CorrelationHandler:
         """
         Rebin Se/Me histogram
         """
-        logger.debug("Rebin SE/ME")
+        logger.debug("Rebin SE/ME with %d", self._rebin_kstar)
         if self._dim == 1:
             self._se.Rebin(self._rebin_kstar)
             self._me.Rebin(self._rebin_kstar)
@@ -280,7 +283,7 @@ class CorrelationHandler:
         """
         Apply ranges to same and mixed event distribution
         """
-        logger.debug("Apply ranges to SE/ME")
+        logger.debug("Apply ranges to SE/ME: %s", self._ranges)
 
         self._se_inRange = self._se.Clone(self.se_inRange_name)
         self._me_inRange = self._me.Clone(self.me_inRange_name)
@@ -298,7 +301,7 @@ class CorrelationHandler:
             self._axis_kstar,
         )
 
-        # use cuts if they are defined
+        # use ranged se/me if they are defined
         if self._do_ranges:
             se = self._se_inRange
             me = self._me_inRange
@@ -395,7 +398,11 @@ class CorrelationHandler:
         """
         Normalize correlation function and SE/ME in normalization range
         """
-        logger.debug("Normalize correlation functions")
+        logger.debug(
+            "Normalize correlation functions in range (%f,%f)",
+            self._normalization_range[0],
+            self._normalization_range[1],
+        )
         self._se_1d_normalized = cu.Normalize(
             self._se_1d.Clone(self.se_1d_normalized_name), self._normalization_range
         )
@@ -417,6 +424,7 @@ class CorrelationHandler:
         """
         Rescale kstar axis of correlation function
         """
+        logger.debug("Rescale correlation functions with %f", self._rescale_kstar)
         self._cf_rescaled = cu.RescaleHist(
             self._cf, self._rescale_kstar, self.cf_rescale_name
         )
