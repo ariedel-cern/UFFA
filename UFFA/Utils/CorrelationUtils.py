@@ -18,9 +18,9 @@ def Proj2dTo1d(hist_2d, axis, name):
     Proj = None
     # use option "e" to trigger calculation of errors
     if axis == 0:
-        Proj = hist_2d.ProjectionX(name, option="e")
+        Proj = hist_2d.ProjectionX(name,0,-1,"e")
     elif axis == 1:
-        Proj = hist_2d.ProjectionY(name, option="e")
+        Proj = hist_2d.ProjectionY(name,0,-1,"e")
     return Proj
 
 
