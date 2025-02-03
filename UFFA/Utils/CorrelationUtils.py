@@ -18,9 +18,9 @@ def Proj2dTo1d(hist_2d, axis, name):
     Proj = None
     # use option "e" to trigger calculation of errors
     if axis == 0:
-        Proj = hist_2d.ProjectionX(name,0,-1,"e")
+        Proj = hist_2d.ProjectionX(name, 0, -1, "e")
     elif axis == 1:
-        Proj = hist_2d.ProjectionY(name,0,-1,"e")
+        Proj = hist_2d.ProjectionY(name, 0, -1, "e")
     return Proj
 
 
@@ -243,25 +243,6 @@ def Recenter(cf, me):
     return rt.TGraphErrors(Nbins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
 
 
-def RescaleHist(hist, scale, name):
-    """
-    Rescale x axis of TH1 histogram
-    """
-    bins = hist.GetNbinsX()
-    # Get the old axis range
-    x_min = hist.GetXaxis().GetXmin()
-    x_max = hist.GetXaxis().GetXmax()
-    # Create a new histogram with the rescaled axis
-    hist_rescaled = rt.TH1F(name, name, bins, x_min * scale, x_max * scale)
-    # Copy the contents of the old histogram to the new one
-    for i in range(1, bins + 1):
-        bin_content = hist.GetBinContent(i)
-        bin_error = hist.GetBinError(i)
-        hist_rescaled.SetBinContent(i, bin_content)
-        hist_rescaled.SetBinError(i, bin_error)
-    return hist_rescaled
-
-
 def RescaleGraph(graph, scale):
     """
     Rescale x axis of TGraphErrors
@@ -281,4 +262,6 @@ def RescaleGraph(graph, scale):
     BinErrorX = np.array(BinErrorX, dtype=ct.c_double)
     BinCenterY = np.array(BinCenterY, dtype=ct.c_double)
     BinErrorY = np.array(BinErrorY, dtype=ct.c_double)
-    return rt.TGraphErrors(n_bins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
+    g = rt.TGraphErrors(n_bins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
+    g.SetNameTitle(graph.GetName() + "_rescaled", graph.GetTitle() + "_rescaled")
+    return g

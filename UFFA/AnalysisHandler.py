@@ -3,7 +3,6 @@ import ROOT as rt
 # rt.EnableThreadSafety()
 
 import itertools
-import pathlib
 import os
 import logging
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor

@@ -1,9 +1,11 @@
 import ROOT as rt
+import numpy as np
+import ctypes as ct
 
 
 def FindBinWithUpperEdgeDetection(Axis, Value):
     """
-    Find bin of a TAxis for a given value with edge detection
+    Find bin of a TAxis for a given value with upper edge detection
     Args:
         Axis (TAxis): Axis with bins
         Value (float): Value whose bin is being searched
@@ -60,3 +62,79 @@ def SetHistRanges(hist, ranges):
                 bin_low = hist.GetAxis(dim).FindBin(cut[0])
                 bin_high = FindBinWithUpperEdgeDetection(hist.GetAxis(dim), cut[1])
                 hist.GetAxis(dim).SetRange(bin_low, bin_high)
+
+
+def RescaleHist(hist, scale, axis):
+    """
+    Rescale axis of a histogram
+    """
+
+    dimension = GetHistDimension(hist)
+    name = hist.GetName() + f"_rescaled"
+    hist_rescaled = None
+
+    if dimension == 1:
+        bins = hist.GetNbinsX()
+        x_min = hist.GetXaxis().GetXmin() * scale
+        x_max = hist.GetXaxis().GetXmax() * scale
+        hist_rescaled = rt.TH1F(name, name, bins, x_min, x_max)
+        for i in range(1, bins + 1):
+            bin_content = hist.GetBinContent(i)
+            bin_error = hist.GetBinError(i)
+            hist_rescaled.SetBinContent(i, bin_content)
+            hist_rescaled.SetBinError(i, bin_error)
+
+    elif dimension == 2:
+        # Get the old axis range
+        x_min = hist.GetXaxis().GetXmin()
+        x_max = hist.GetXaxis().GetXmax()
+        x_bins = hist.GetNbinsX()
+        y_min = hist.GetYaxis().GetXmin()
+        y_max = hist.GetYaxis().GetXmax()
+        y_bins = hist.GetNbinsY()
+        if axis == 0:
+            x_min *= scale
+            x_max *= scale
+        elif axis == 1:
+            y_min *= scale
+            y_max *= scale
+        hist_rescaled = rt.TH2F(name, name, x_bins, x_min, x_max, y_bins, y_min, y_max)
+        for i in range(1, x_bins + 1):
+            for j in range(1, y_bins + 1):
+                bin_content = hist.GetBinContent(i, j)
+                bin_error = hist.GetBinError(i, j)
+                hist_rescaled.SetBinContent(i, j, bin_content)
+                hist_rescaled.SetBinError(i, j, bin_error)
+
+    elif dimension == 3:
+        # Get the old axis range
+        x_min = hist.GetXaxis().GetXmin()
+        x_max = hist.GetXaxis().GetXmax()
+        x_bins = hist.GetNbinsX()
+        y_min = hist.GetYaxis().GetXmin()
+        y_max = hist.GetYaxis().GetXmax()
+        y_bins = hist.GetNbinsY()
+        z_min = hist.GetZaxis().GetXmin()
+        z_max = hist.GetZaxis().GetXmax()
+        z_bins = hist.GetNbinsZ()
+        if axis == 0:
+            x_min *= scale
+            x_max *= scale
+        elif axis == 1:
+            y_min *= scale
+            y_max *= scale
+        elif axis == 2:
+            z_min *= scale
+            z_max *= scale
+        hist_rescaled = rt.TH3F(
+            name, name, x_bins, x_min, x_max, y_bins, y_min, y_max, z_bins, z_min, z_max
+        )
+        for i in range(1, x_bins + 1):
+            for j in range(1, y_bins + 1):
+                for k in range(1, y_bins + 1):
+                    bin_content = hist.GetBinContent(i, j, k)
+                    bin_error = hist.GetBinError(i, j, k)
+                    hist_rescaled.SetBinContent(i, j, k, bin_content)
+                    hist_rescaled.SetBinError(i, j, k, bin_error)
+
+    return hist_rescaled
