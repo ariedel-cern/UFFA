@@ -161,7 +161,7 @@ def Reweight2d(se, me, name):
         Reweighted mixed event distribtion
     """
     MeRw = me.Clone(name)
-    MeRw.Reset("ICESM")
+    MeRw.Reset()
 
     for ybin in range(1, se.GetNbinsY()):
         SeBin = se.ProjectionX(f"se_bin_{ybin}", ybin, ybin)
@@ -172,6 +172,7 @@ def Reweight2d(se, me, name):
             MeBin.Scale(SeInt / MeInt)
             for xbin in range(1, MeBin.GetNbinsX() + 1):
                 MeRw.SetBinContent(xbin, ybin, MeBin.GetBinContent(xbin))
+                MeRw.SetBinError(xbin, ybin, MeBin.GetBinError(xbin))
     return MeRw
 
 
@@ -199,11 +200,18 @@ def Normalize(distribution, range):
     return distribution
 
 
-def Recenter(cf, me):
+def Recenter(cf, me, skipEmptyBins=False):
     """
-    Recenter bins of the correlation function according to mixed event distribution
+    Recenter bins of the correlation function according to mixed event distribution with a finer binning
+    Args:
+        cf (TGraphErrors): correlation function to be recentered
+        me (TH1): fine binned mixed event distribution
+        skipEmptyBins (bool): skip empty bins, so there is not data point at 0
+
+    Returns: Rescaled correlation functions as TGraphErrors
     """
 
+    # get rebin factor
     rebin = int(me.GetNbinsX() / cf.GetNbinsX())
     Nbins = cf.GetNbinsX()
 
@@ -212,21 +220,33 @@ def Recenter(cf, me):
     BinCenterY = []
     BinErrorY = []
 
+    # loop ever all bins in the correlation function
     for bin in range(1, Nbins + 1):
+
         value = 0
         norm = 0
         error = 0
+
+        # loop over underlying bins in fine binned mixed event distribution
         for bins in range(1 + (bin - 1) * rebin, bin * rebin):
             value = value + me.GetBinCenter(bins) * me.GetBinContent(bins)
             norm = norm + me.GetBinContent(bins)
+
+        # if requested, we skip empty bins
+        if skipEmptyBins == True and norm == 0:
+            continue
+
         if norm > 0:
             value = value / norm
         else:
+            # if we do not skip empty bins, then use the original bin center
             value = cf.GetBinCenter(bin)
+
         for bins in range(1 + (bin - 1) * rebin, bin * rebin):
             error = error + me.GetBinContent(bins) * np.power(
                 me.GetBinCenter(bins) - value, 2
             )
+
         BinCenterX.append(value)
         if norm > 0:
             BinErrorX.append(np.sqrt(error / norm))
@@ -240,7 +260,9 @@ def Recenter(cf, me):
     BinCenterY = np.array(BinCenterY, dtype=ct.c_double)
     BinErrorY = np.array(BinErrorY, dtype=ct.c_double)
 
-    return rt.TGraphErrors(Nbins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
+    return rt.TGraphErrors(
+        len(BinCenterX), BinCenterX, BinCenterY, BinErrorX, BinErrorY
+    )
 
 
 def RescaleGraph(graph, scale):

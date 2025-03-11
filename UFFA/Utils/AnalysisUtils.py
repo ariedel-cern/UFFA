@@ -1,4 +1,4 @@
-import ROOT as rt
+import pathlib
 
 
 def CheckDictEntry(dict, key, type):
@@ -43,3 +43,31 @@ def GetObjectFromFile(file, path):
         # reset the pointer
         current_dir = next_dir
     return current_dir
+
+
+def CreateOutputDir(path, rename_old=False):
+    """
+    Make sure that the parent directory of path exists
+    """
+    # create parent dir of path
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # if set, check if file at path already exists
+    # if so, rename
+    if rename_old:
+        if path.exists():
+            base = path.stem  # File name without extension
+            suffix = path.suffix  # File extension (if any)
+            parent = path.parent
+        else:
+            return
+
+        counter = 1
+        while True:
+            new_name = f"{base}_{counter:04d}{suffix}"
+            new_path = parent / new_name
+            if not new_path.exists():  # Found a free name
+                path.rename(new_path)  # Rename the existing file
+                break
+            counter += 1

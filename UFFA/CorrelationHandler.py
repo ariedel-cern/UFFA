@@ -464,13 +464,17 @@ class CorrelationHandler:
         """
         logger.debug("Compute recentered correlation function")
 
-        self._cf_recentered = cu.Recenter(self._cf, self._handler_noRebin.GetMe1D())
+        self._cf_recentered = cu.Recenter(
+            self._cf, self._handler_noRebin.GetMe1D(), True
+        )
         self._cf_recentered.SetNameTitle(
             self.cf_recentered_name, self.cf_recentered_name
         )
         if self._do_reweight:
             self._cf_reweighted_recentered = cu.Recenter(
-                self._cf_reweighted, self._handler_noRebin.GetMe1DRw()
+                self._cf_reweighted,
+                self._handler_noRebin.GetMe1DRw(),
+                True,
             )
             self._cf_reweighted_recentered.SetNameTitle(
                 self.cf_reweighted_recentered_name, self.cf_reweighted_recentered_name

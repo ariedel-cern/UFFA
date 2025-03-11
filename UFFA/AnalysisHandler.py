@@ -1,6 +1,8 @@
 import ROOT as rt
 
-# rt.EnableThreadSafety()
+rt.gROOT.SetBatch(True)
+rt.EnableThreadSafety()
+rt.TH1.AddDirectory(False)
 
 import itertools
 import os
@@ -9,7 +11,6 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from . import CorrelationHandler as ch
 from .Utils import AnalysisUtils as au
-from .Utils import CorrelationUtils as cu
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,6 @@ class AnalysisHandler:
 
         # declare class variables
         self._input_file_name = None
-        self._input_file = None
         self._output_file_name = None
         self._output_file = None
         self._output_dir_name = None
@@ -46,69 +46,58 @@ class AnalysisHandler:
         self._handler_list = []
 
         # Check input file
-        au.CheckDictEntry(analysis_dict, "Input_File", str)
-        self._input_file_name = analysis_dict["Input_File"]
+        self._input_file_name = analysis_dict.get("Input_File", None)
+        logger.debug("Input file: name %s", self._input_file_name)
 
-        if not rt.gSystem.AccessPathName(self._input_file_name):
-            self._input_file = rt.TFile(self._input_file_name, "READ")
-            logger.debug("Opened input file: %s", self._input_file_name)
-        else:
-            raise ValueError(f"{self._input_file_name} does not exist")
+        # check same event distribution
+        self._path_se = analysis_dict.get("Path_SE", "SE")
+        self._path_me = analysis_dict.get("Path_ME", "ME")
 
-        au.CheckDictEntry(analysis_dict, "Output_File", str)
-        self._output_file_name = analysis_dict["Output_File"]
-
-        # check name of output TDirectoryFile
-        au.CheckDictEntry(analysis_dict, "Output_Dir", str)
-        self._output_dir_name = analysis_dict["Output_Dir"]
+        self._output_file_name = analysis_dict.get("Output_File", "./output.root")
+        logger.debug("Output file name: %s", self._output_file_name)
+        au.CreateOutputDir(self._output_file_name)
+        self._output_dir_name = analysis_dict.get("Output_Dir", "analysis")
         logger.debug(
             "Name for TDirectoryFile in output file: %s", self._output_dir_name
         )
 
-        # check same event distribution
-        au.CheckDictEntry(analysis_dict, "Path_SE", str)
-        self._path_se = analysis_dict["Path_SE"]
-        self._Se = au.GetObjectFromFile(self._input_file, self._path_se)
-        if self._Se == None:
-            raise ValueError(
-                f"Same event distribution not found. Is '{self._path_se}' the correct path?"
-            )
-        logger.debug(
-            "Same event distribution retrieved from input file: %s", self._path_se
-        )
-
-        # check mixed event distribution
-        au.CheckDictEntry(analysis_dict, "Path_ME", str)
-        self._path_me = analysis_dict["Path_ME"]
-        self._Me = au.GetObjectFromFile(self._input_file, self._path_me)
-        if self._Me == None:
-            raise ValueError(
-                f"Mixed event distribution not found. Is '{self._path_me}' the correct path?"
-            )
-        logger.debug(
-            "Mixed event distribution retrieved from input file: %s", self._path_me
-        )
-
         # these are checked and logged later in CorrelationHandler class
-        au.CheckDictEntry(analysis_dict, "Normalization_Range", tuple)
-        self._normalization_range = analysis_dict["Normalization_Range"]
+        self._normalization_range = analysis_dict.get(
+            "Normalization_Range", (0.24, 0.34)
+        )
 
-        # au.CheckDictEntry(analysis_dict, "Rebin_Factor_Kstar_Axis", int)
-        self._rebin_list = analysis_dict["Rebin_Factor_Kstar_Axis"]
-        if not self._rebin_list:
-            self._rebin_list = [1]
+        self._rebin_list = analysis_dict.get("Rebin_Factor_Kstar_Axis", [1])
+        self._axis_kstar = analysis_dict.get("Index_Kstar_Axis", 0)
+        self._rescale_kstar = analysis_dict.get("Rescale_Factor_Kstar_Axis", -1)
+        self._axis_reweight = analysis_dict.get("Index_Reweight_Axis", -1)
+        self._range_list = analysis_dict.get("Bins", [])
 
-        au.CheckDictEntry(analysis_dict, "Index_Kstar_Axis", int)
-        self._axis_kstar = analysis_dict["Index_Kstar_Axis"]
+    def GetHistograms(self):
+        """
+        Get histograms from input file, if defined
+        """
+        if self._input_file_name == None:
+            return
 
-        au.CheckDictEntry(analysis_dict, "Rescale_Factor_Kstar_Axis", int)
-        self._rescale_kstar = analysis_dict["Rescale_Factor_Kstar_Axis"]
+        input_file = rt.TFile(self._input_file_name, "READ")
 
-        au.CheckDictEntry(analysis_dict, "Index_Reweight_Axis", int)
-        self._axis_reweight = analysis_dict["Index_Reweight_Axis"]
+        self._Se = au.GetObjectFromFile(input_file, self._path_se)
+        logger.debug("Same event distribution at path: %s", self._path_se)
 
-        au.CheckDictEntry(analysis_dict, "Bins", list)
-        self._range_list = analysis_dict["Bins"]
+        self._Me = au.GetObjectFromFile(input_file, self._path_me)
+        logger.debug("Mixed event distribution at path: %s", self._path_me)
+
+    def SetHistograms(self, Se, Me):
+        """
+        Set histograms directly without retrieving them from a file
+
+        Args:
+            Se (THX): Same event distribtuion
+            Me (THX): Mixed event distribution
+        """
+        self._Se = Se.Clone("SE")
+        self._Me = Se.Clone("ME")
+        logger.debug("Same and mixed event distribution passed directly")
 
     def ProcessHandler(self, index):
         """
@@ -141,13 +130,15 @@ class AnalysisHandler:
             workers (int): Number of launched processes. If number is less then 0, use all avaiable cores
         """
 
+        self.GetHistograms()
+
         # generate all configurations, i.e. all rebins and all ranges
         self.GenerateConfigurations()
 
         if parallel == True:
             if workers <= 0:
                 workers = os.cpu_count()
-            with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            with ProcessPoolExecutor(max_workers=workers) as executor:
                 self._handler_list = list(
                     executor.map(
                         self.ProcessHandler, list(range(len(self._config_list)))
@@ -158,8 +149,6 @@ class AnalysisHandler:
                 self._handler_list.append(self.ProcessHandler(i))
 
         self.SaveToOutput(parallel, workers)
-
-        self._input_file.Close()
 
     def GenerateConfigurations(self):
         """
