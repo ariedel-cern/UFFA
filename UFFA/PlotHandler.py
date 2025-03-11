@@ -29,151 +29,151 @@ class PlotHandler:
             legend_dict (dict): Dictionary to configure legends
         """
         # canvas style
-        self._canvas_name = canvas_dict.get("Name", "canvas")
-        self._canvas_title = canvas_dict.get("Title", "title")
-        self._canvas_width = canvas_dict.get("Width", 700)
-        self._canvas_height = canvas_dict.get("Height", 500)
+        self.__canvas_name = canvas_dict.get("Name", "canvas")
+        self.__canvas_title = canvas_dict.get("Title", "title")
+        self.__canvas_width = canvas_dict.get("Width", 700)
+        self.__canvas_height = canvas_dict.get("Height", 500)
 
-        self._canvas_xmin = canvas_dict.get("Xmin", 0)
-        self._canvas_xmax = canvas_dict.get("Xmax", 0)
-        self._canvas_ymin = canvas_dict.get("Ymin", 0)
-        self._canvas_ymax = canvas_dict.get("Ymax", 0)
+        self.__canvas_xmin = canvas_dict.get("Xmin", 0)
+        self.__canvas_xmax = canvas_dict.get("Xmax", 0)
+        self.__canvas_ymin = canvas_dict.get("Ymin", 0)
+        self.__canvas_ymax = canvas_dict.get("Ymax", 0)
 
-        self._canvas_left_margin = canvas_dict.get("MarginLeft", 0.1)
-        self._canvas_right_margin = canvas_dict.get("MarginRight", 0.1)
-        self._canvas_bottom_margin = canvas_dict.get("MarginBottom", 0.1)
-        self._canvas_top_margin = canvas_dict.get("MarginTop", 0.1)
+        self.__canvas_left_margin = canvas_dict.get("MarginLeft", 0.1)
+        self.__canvas_right_margin = canvas_dict.get("MarginRight", 0.1)
+        self.__canvas_bottom_margin = canvas_dict.get("MarginBottom", 0.1)
+        self.__canvas_top_margin = canvas_dict.get("MarginTop", 0.1)
 
-        self._canvas_log = canvas_dict.get("Log", "")
-        self._canvas_max_digits = canvas_dict.get("MaxDigits", 2)
+        self.__canvas_log = canvas_dict.get("Log", "")
+        self.__canvas_max_digits = canvas_dict.get("MaxDigits", 2)
 
         # axis style
-        self._xaxis_title = canvas_dict.get("XTitle", "xaxis")
-        self._yaxis_title = canvas_dict.get("YTitle", "yaxis")
+        self.__xaxis_title = canvas_dict.get("XTitle", "xaxis")
+        self.__yaxis_title = canvas_dict.get("YTitle", "yaxis")
 
-        self._xaxis_title_size = canvas_dict.get("XTitleSize", 0.04)
-        self._yaxis_title_size = canvas_dict.get("YTitleSize", 0.04)
+        self.__xaxis_title_size = canvas_dict.get("XTitleSize", 0.04)
+        self.__yaxis_title_size = canvas_dict.get("YTitleSize", 0.04)
 
-        self._xaxis_label_size = canvas_dict.get("XLabelSize", 0.04)
-        self._yaxis_label_size = canvas_dict.get("YLabelSize", 0.04)
+        self.__xaxis_label_size = canvas_dict.get("XLabelSize", 0.04)
+        self.__yaxis_label_size = canvas_dict.get("YLabelSize", 0.04)
 
-        self._xaxis_bin_labels = canvas_dict.get("XBinLabels", [])
-        self._yaxis_bin_labels = canvas_dict.get("YBinLabels", [])
+        self.__xaxis_bin_labels = canvas_dict.get("XBinLabels", [])
+        self.__yaxis_bin_labels = canvas_dict.get("YBinLabels", [])
 
-        self._xaxis_title_offset = canvas_dict.get("XTitleOffset", 1)
-        self._yaxis_title_offset = canvas_dict.get("YTitleOffset", 1)
+        self.__xaxis_title_offset = canvas_dict.get("XTitleOffset", 1)
+        self.__yaxis_title_offset = canvas_dict.get("YTitleOffset", 1)
 
-        self._hist_dicts = []
-        self._graph_dicts = []
+        self.__hist_dicts = []
+        self.__graph_dicts = []
 
         # legend style
-        self._create_legend = False
+        self.__create_legend = False
         if legend_dict is not None:
-            self._create_legend = True
-            self._legend_xmin = legend_dict.get("Xmin", 0)
-            self._legend_xmax = legend_dict.get("Xmax", 0)
-            self._legend_ymin = legend_dict.get("Ymin", 0)
-            self._legend_ymax = legend_dict.get("Ymax", 0)
+            self.__create_legend = True
+            self.__legend_xmin = legend_dict.get("Xmin", 0)
+            self.__legend_xmax = legend_dict.get("Xmax", 0)
+            self.__legend_ymin = legend_dict.get("Ymin", 0)
+            self.__legend_ymax = legend_dict.get("Ymax", 0)
 
-            self._legend_bordersize = legend_dict.get("BorderSize", 0)
-            self._legend_fillstyle = legend_dict.get("FillStyle", 0)
-            self._legend_header = legend_dict.get("Header", "")
+            self.__legend_bordersize = legend_dict.get("BorderSize", 0)
+            self.__legend_fillstyle = legend_dict.get("FillStyle", 0)
+            self.__legend_header = legend_dict.get("Header", "")
 
-        self._output_name = canvas_dict.get("OutputName", "plot")
-        self._canvas = None
-        self._histograms = []
-        self._graphs = []
-        self._legend = None
+        self.__output_name = canvas_dict.get("OutputName", "plot")
+        self.__canvas = None
+        self.__histograms = []
+        self.__graphs = []
+        self.__legend = None
 
     def SetHistograms(self, hist_dicts):
-        self._hist_dicts = copy.deepcopy(hist_dicts)
+        self.__hist_dicts = copy.deepcopy(hist_dicts)
 
     def SetGraphs(self, graph_dicts):
-        self._graph_dicts = copy.deepcopy(graph_dicts)
+        self.__graph_dicts = copy.deepcopy(graph_dicts)
 
     def CreateCanvas(self):
         """
         Create canvas for the plot
         """
         # set max digits per axis
-        rt.TGaxis.SetMaxDigits(self._canvas_max_digits)
+        rt.TGaxis.SetMaxDigits(self.__canvas_max_digits)
 
         # create canvas
-        self._canvas = rt.TCanvas(
-            self._canvas_name,
-            self._canvas_title,
-            self._canvas_width,
-            self._canvas_height,
+        self.__canvas = rt.TCanvas(
+            self.__canvas_name,
+            self.__canvas_title,
+            self.__canvas_width,
+            self.__canvas_height,
         )
-        logger.debug("Create canvas with name: %s", self._canvas_name)
-        logger.debug("Create canvas with title: %s", self._canvas_title)
+        logger.debug("Create canvas with name: %s", self.__canvas_name)
+        logger.debug("Create canvas with title: %s", self.__canvas_title)
         logger.debug(
             "Create canvas with dimensions (width,height): (%d,%d)",
-            self._canvas_width,
-            self._canvas_height,
+            self.__canvas_width,
+            self.__canvas_height,
         )
 
         # set margins
-        self._canvas.SetMargin(
-            self._canvas_left_margin,
-            self._canvas_right_margin,
-            self._canvas_bottom_margin,
-            self._canvas_top_margin,
+        self.__canvas.SetMargin(
+            self.__canvas_left_margin,
+            self.__canvas_right_margin,
+            self.__canvas_bottom_margin,
+            self.__canvas_top_margin,
         )
-        logger.debug("Set left Margin: %.2f", self._canvas_left_margin)
-        logger.debug("Set right Margin: %.2f", self._canvas_right_margin)
-        logger.debug("Set bottom Margin: %.2f", self._canvas_bottom_margin)
-        logger.debug("Set top Margin: %.2f", self._canvas_top_margin)
+        logger.debug("Set left Margin: %.2f", self.__canvas_left_margin)
+        logger.debug("Set right Margin: %.2f", self.__canvas_right_margin)
+        logger.debug("Set bottom Margin: %.2f", self.__canvas_bottom_margin)
+        logger.debug("Set top Margin: %.2f", self.__canvas_top_margin)
 
-        self._frame = self._canvas.DrawFrame(
-            self._canvas_xmin,
-            self._canvas_ymin,
-            self._canvas_xmax,
-            self._canvas_ymax,
+        self.__frame = self.__canvas.DrawFrame(
+            self.__canvas_xmin,
+            self.__canvas_ymin,
+            self.__canvas_xmax,
+            self.__canvas_ymax,
         )
         logger.debug(
             "Create canvas with Frame Xmin: %.2f -> Xmax: %.2f and Ymin: %.2f -> Ymax: %.2f",
-            self._canvas_xmin,
-            self._canvas_xmax,
-            self._canvas_ymin,
-            self._canvas_ymax,
+            self.__canvas_xmin,
+            self.__canvas_xmax,
+            self.__canvas_ymin,
+            self.__canvas_ymax,
         )
 
-        self._frame.SetTitle(self._canvas_title)
-        self._frame.SetName("canvas_frame")
+        self.__frame.SetTitle(self.__canvas_title)
+        self.__frame.SetName("canvas_frame")
 
-        if self._xaxis_bin_labels:
-            self._frame.SetBins(
-                len(self._xaxis_bin_labels), self._canvas_xmin, self._canvas_xmax
+        if self.__xaxis_bin_labels:
+            self.__frame.SetBins(
+                len(self.__xaxis_bin_labels), self.__canvas_xmin, self.__canvas_xmax
             )
-            for i, name in enumerate(self._xaxis_bin_labels):
-                self._frame.GetXaxis().SetBinLabel(i + 1, name)
+            for i, name in enumerate(self.__xaxis_bin_labels):
+                self.__frame.GetXaxis().SetBinLabel(i + 1, name)
                 logger.debug("Set label %s on bin %d", name, i + 1)
-                # self._hist.GetXaxis().ChangeLabel(i + 1, 320, -1, 13, -1, -1, name)
+                # self.__hist.GetXaxis().ChangeLabel(i + 1, 320, -1, 13, -1, -1, name)
 
-        self._frame.GetXaxis().SetLabelSize(self._xaxis_label_size)
-        self._frame.GetXaxis().SetTitleSize(self._xaxis_title_size)
-        self._frame.GetXaxis().SetTitleOffset(self._xaxis_title_offset)
-        self._frame.GetXaxis().SetTitle(self._xaxis_title)
-        logger.debug("X axis title: %s", self._xaxis_title)
-        logger.debug("X axis title size: %.2f", self._xaxis_title_size)
-        logger.debug("X axis label size: %.2f", self._xaxis_label_size)
-        self._frame.GetYaxis().SetLabelSize(self._yaxis_label_size)
-        self._frame.GetYaxis().SetTitleSize(self._yaxis_title_size)
-        self._frame.GetYaxis().SetTitleOffset(self._yaxis_title_offset)
-        self._frame.GetYaxis().SetTitle(self._yaxis_title)
-        logger.debug("Y axis title: %s", self._yaxis_title)
-        logger.debug("Y axis title size: %.2f", self._yaxis_title_size)
-        logger.debug("Y axis label size: %.2f", self._yaxis_label_size)
+        self.__frame.GetXaxis().SetLabelSize(self.__xaxis_label_size)
+        self.__frame.GetXaxis().SetTitleSize(self.__xaxis_title_size)
+        self.__frame.GetXaxis().SetTitleOffset(self.__xaxis_title_offset)
+        self.__frame.GetXaxis().SetTitle(self.__xaxis_title)
+        logger.debug("X axis title: %s", self.__xaxis_title)
+        logger.debug("X axis title size: %.2f", self.__xaxis_title_size)
+        logger.debug("X axis label size: %.2f", self.__xaxis_label_size)
+        self.__frame.GetYaxis().SetLabelSize(self.__yaxis_label_size)
+        self.__frame.GetYaxis().SetTitleSize(self.__yaxis_title_size)
+        self.__frame.GetYaxis().SetTitleOffset(self.__yaxis_title_offset)
+        self.__frame.GetYaxis().SetTitle(self.__yaxis_title)
+        logger.debug("Y axis title: %s", self.__yaxis_title)
+        logger.debug("Y axis title size: %.2f", self.__yaxis_title_size)
+        logger.debug("Y axis label size: %.2f", self.__yaxis_label_size)
 
-        if "z" in self._canvas_log:
-            self._canvas.SetLogz()
+        if "z" in self.__canvas_log:
+            self.__canvas.SetLogz()
             logger.debug("Use log scale for z axis")
-        if "y" in self._canvas_log:
-            self._canvas.SetLogy()
+        if "y" in self.__canvas_log:
+            self.__canvas.SetLogy()
             logger.debug("Use log scale for y axis")
-        if "x" in self._canvas_log:
-            self._canvas.SetLogx()
+        if "x" in self.__canvas_log:
+            self.__canvas.SetLogx()
             logger.debug("Use log scale for x axis")
 
     def CreateLegend(self):
@@ -181,30 +181,30 @@ class PlotHandler:
         Add legend to the plot
         """
         # normalized coordinated
-        if self._create_legend is False:
+        if self.__create_legend is False:
             return
 
-        self._legend = rt.TLegend(
-            self._legend_xmin,
-            self._legend_ymin,
-            self._legend_xmax,
-            self._legend_ymax,
+        self.__legend = rt.TLegend(
+            self.__legend_xmin,
+            self.__legend_ymin,
+            self.__legend_xmax,
+            self.__legend_ymax,
         )
         logger.debug(
             "Create legend at position Xmin: %.2f -> Xmax: %.2f and Ymin: %.2f -> Ymax: %.2f",
-            self._legend_xmin,
-            self._legend_xmax,
-            self._legend_ymin,
-            self._legend_ymax,
+            self.__legend_xmin,
+            self.__legend_xmax,
+            self.__legend_ymin,
+            self.__legend_ymax,
         )
 
         # defaults for legend
-        self._legend.SetBorderSize(self._legend_bordersize)
-        self._legend.SetFillStyle(self._legend_fillstyle)
-        if self._legend_header != "":
-            self._legend.SetHeader(self._legend_header)
-            logger.debug("Add legend header: %s", self._legend_header)
-        for hist in self._histograms:
+        self.__legend.SetBorderSize(self.__legend_bordersize)
+        self.__legend.SetFillStyle(self.__legend_fillstyle)
+        if self.__legend_header != "":
+            self.__legend.SetHeader(self.__legend_header)
+            logger.debug("Add legend header: %s", self.__legend_header)
+        for hist in self.__histograms:
             if hist.IsLegendDefined():
                 logger.debug(
                     "Add histogram %s to legend with entry %s and option %s",
@@ -212,12 +212,12 @@ class PlotHandler:
                     hist.GetLegendEntry(),
                     hist.GetLegendOption(),
                 )
-                self._legend.AddEntry(
+                self.__legend.AddEntry(
                     hist.GetHistogram(),
                     hist.GetLegendEntry(),
                     hist.GetLegendOption(),
                 )
-        for graph in self._graphs:
+        for graph in self.__graphs:
             if graph.IsLegendDefined():
                 logger.debug(
                     "Add histogram %s to legend with entry %s and option %s",
@@ -225,7 +225,7 @@ class PlotHandler:
                     graph.GetLegendEntry(),
                     graph.GetLegendOption(),
                 )
-                self._legend.AddEntry(
+                self.__legend.AddEntry(
                     graph.GetGraph(),
                     graph.GetLegendEntry(),
                     graph.GetLegendOption(),
@@ -237,24 +237,24 @@ class PlotHandler:
         """
         logger.debug("Fetch histograms")
         # override titles and names
-        for i, d in enumerate(self._hist_dicts):
+        for i, d in enumerate(self.__hist_dicts):
             d.update(
                 {
                     "Name": f"Histogram_{i}",
                 }
             )
         # create wrappers
-        self._histograms = [th1p.TH1Plotter(d) for d in self._hist_dicts]
+        self.__histograms = [th1p.TH1Plotter(d) for d in self.__hist_dicts]
 
         logger.debug("Fetch graphs")
         # override titles and names
-        for i, d in enumerate(self._graph_dicts):
+        for i, d in enumerate(self.__graph_dicts):
             d.update(
                 {
                     "Name": f"Graph_{i}",
                 }
             )
-        self._graphs = [tgp.TGraphPlotter(d) for d in self._graph_dicts]
+        self.__graphs = [tgp.TGraphPlotter(d) for d in self.__graph_dicts]
 
     def Plot(self):
         """
@@ -267,15 +267,15 @@ class PlotHandler:
         self.CreateCanvas()
         self.CreateLegend()
         # draw histograms with configured style
-        for hist in self._histograms:
+        for hist in self.__histograms:
             hist.Draw(style=True)
         # draw graphs with configured style
-        for graph in self._graphs:
+        for graph in self.__graphs:
             graph.Draw(style=True)
         # draw legend
-        self._legend.Draw()
+        self.__legend.Draw()
         # save output
         for format in self.output_formats:
-            output_name = self._output_name + format
+            output_name = self.__output_name + format
             au.CreateOutputDir(output_name, rename_old=True)
-            self._canvas.SaveAs(output_name)
+            self.__canvas.SaveAs(output_name)
