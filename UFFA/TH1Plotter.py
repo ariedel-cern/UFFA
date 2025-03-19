@@ -16,7 +16,6 @@ class TH1Plotter:
         if "Histogram" in hist_dict:
             self.__hist = hist_dict.get("Histogram").Clone()
             self.__hist.SetDirectory(0)
-            print(self.__hist)
             logger.debug("Set histogram %s from dict", self.__hist.GetName())
         else:
             with rt.TFile(hist_dict.get("File", ""), "READ") as file:
@@ -52,7 +51,13 @@ class TH1Plotter:
         self.__MarkerStyle = hist_dict.get("MarkerStyle", 1)
         self.__MarkerSize = hist_dict.get("MarkerSize", 1.0)
 
-        self.__FillColor = hist_dict.get("FillColor", 0)
+        self.__FillColor = None
+        self.__FillColorAlpha = None
+        if "FillColor" in hist_dict:
+            if isinstance(hist_dict.get("FillColor"), tuple):
+                self.__FillColorAlpha = hist_dict.get("FillColor", (0, 0))
+            else:
+                self.__FillColor = hist_dict.get("FillColor", 0)
         self.__FillStyle = hist_dict.get("FillStyle", 1001)
 
         self.__Norm = hist_dict.get("Norm", -1)
@@ -107,9 +112,19 @@ class TH1Plotter:
         logger.debug("Marker style: %d", self.__MarkerStyle)
         logger.debug("Marker size: %.2f", self.__MarkerSize)
 
-        self.__hist.SetFillColor(self.__FillColor)
+        if self.__FillColor:
+            self.__hist.SetFillColor(self.__FillColor)
+            logger.debug("Fill color: %d", self.__FillColor)
+        if self.__FillColorAlpha:
+            self.__hist.SetFillColorAlpha(
+                self.__FillColorAlpha[0], self.__FillColorAlpha[1]
+            )
+            logger.debug(
+                "Fill color alpha: (%d,%.2f",
+                self.__FillColorAlpha[0],
+                self.__FillColorAlpha[1],
+            )
         self.__hist.SetFillStyle(self.__FillStyle)
-        logger.debug("Fill color: %d", self.__FillColor)
         logger.debug("Fill style: %d", self.__FillStyle)
 
     def Draw(self, style=True):

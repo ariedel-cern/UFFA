@@ -1,4 +1,9 @@
 import ROOT as rt
+
+rt.gROOT.SetBatch(True)
+rt.EnableThreadSafety()
+rt.TH1.AddDirectory(False)
+
 import logging
 import copy
 import numpy as np
@@ -77,6 +82,7 @@ class PlotHandler:
 
             self.__legend_bordersize = legend_dict.get("BorderSize", 0)
             self.__legend_fillstyle = legend_dict.get("FillStyle", 0)
+            self.__legend_columns = legend_dict.get("NColumns", 1)
             self.__legend_header = legend_dict.get("Header", "")
 
         self.__output_name = canvas_dict.get("OutputName", "plot")
@@ -87,6 +93,40 @@ class PlotHandler:
 
     def SetHistograms(self, hist_dicts):
         self.__hist_dicts = copy.deepcopy(hist_dicts)
+
+    def SetHistogramsWithRatio(self, ratio_dict, hist_dicts):
+        ratioHistDict = copy.deepcopy(ratio_dict)
+
+        if "Histogram" in ratioHistDict:
+            RatioHist = ratio_dict.get("Histogram").Clone()
+            logger.debug("Get histogram %s from dict", RatioHist.GetName())
+        else:
+            with rt.TFile(ratio_dict.get("File", ""), "READ") as file:
+                RatioHist = au.GetObjectFromFile(
+                    file, ratio_dict.get("Path", "path")
+                ).Clone()
+                logger.debug(
+                    "Open file %s to retrieve histogram at path %s",
+                    ratio_dict.get("File", ""),
+                    ratio_dict.get("Path", "path"),
+                )
+
+        ratioHistDicts = copy.deepcopy(hist_dicts)
+        for hist_dict in ratioHistDicts:
+            if "Histogram" in ratioHistDict:
+                TempHist = hist_dict.get("Histogram").Clone("Ratio")
+            else:
+                with rt.TFile(hist_dict.get("File", ""), "READ") as file:
+                    TempHist = au.GetObjectFromFile(
+                        file, hist_dict.get("Path", "Path")
+                    ).Clone("Ratio")
+                    TempHist.SetDirectory(0)
+                del hist_dict["File"]
+                del hist_dict["Path"]
+
+            TempHist.Divide(RatioHist)
+            hist_dict["Histogram"] = TempHist
+            self.__hist_dicts.append(hist_dict)
 
     def SetGraphs(self, graph_dicts):
         self.__graph_dicts = copy.deepcopy(graph_dicts)
@@ -201,6 +241,7 @@ class PlotHandler:
         # defaults for legend
         self.__legend.SetBorderSize(self.__legend_bordersize)
         self.__legend.SetFillStyle(self.__legend_fillstyle)
+        self.__legend.SetNColumns(self.__legend_columns)
         if self.__legend_header != "":
             self.__legend.SetHeader(self.__legend_header)
             logger.debug("Add legend header: %s", self.__legend_header)
@@ -273,7 +314,8 @@ class PlotHandler:
         for graph in self.__graphs:
             graph.Draw(style=True)
         # draw legend
-        self.__legend.Draw()
+        if self.__create_legend:
+            self.__legend.Draw()
         # save output
         for format in self.output_formats:
             output_name = self.__output_name + format

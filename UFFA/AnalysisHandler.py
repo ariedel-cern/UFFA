@@ -45,9 +45,13 @@ class AnalysisHandler:
         self.__config_list = []
         self.__handler_list = []
 
-        # Check input file
+        # get input file
         self.__input_file_name = analysis_dict.get("Input_File", None)
-        logger.debug("Input file: name %s", self.__input_file_name)
+
+        # by default it is assumed that SE and ME are in the same file
+        # adding option to specify the file seperately
+        self.__input_file_name_se = analysis_dict.get("Input_File_SE", None)
+        self.__input_file_name_me = analysis_dict.get("Input_File_ME", None)
 
         # check same event distribution
         self.__path_se = analysis_dict.get("Path_SE", "SE")
@@ -72,20 +76,46 @@ class AnalysisHandler:
         self.__axis_reweight = analysis_dict.get("Index_Reweight_Axis", -1)
         self.__range_list = analysis_dict.get("Bins", [])
 
-    def GetHistograms(self):
+    def __GetHistograms(self):
         """
         Get histograms from input file, if defined
         """
         if self.__input_file_name == None:
-            return
+            input_file_se = rt.TFile(self.__input_file_name_se, "READ")
 
-        input_file = rt.TFile(self.__input_file_name, "READ")
+            self._Se = au.GetObjectFromFile(input_file_se, self.__path_se)
+            logger.debug(
+                "Get Same event distribution from %s at path: %s",
+                self.__input_file_name_se,
+                self.__path_se,
+            )
+            input_file_se.Close()
 
-        self._Se = au.GetObjectFromFile(input_file, self.__path_se)
-        logger.debug("Same event distribution at path: %s", self.__path_se)
+            input_file_me = rt.TFile(self.__input_file_name_me, "READ")
+            self._Me = au.GetObjectFromFile(input_file_me, self.__path_me)
+            logger.debug(
+                "Get Mixed event distribution from %s at path: %s",
+                self.__input_file_name_me,
+                self.__path_me,
+            )
+            input_file_me.Close()
+        else:
+            input_file = rt.TFile(self.__input_file_name, "READ")
 
-        self._Me = au.GetObjectFromFile(input_file, self.__path_me)
-        logger.debug("Mixed event distribution at path: %s", self.__path_me)
+            self._Se = au.GetObjectFromFile(input_file, self.__path_se)
+            logger.debug(
+                "Get Same event distribution from %s at path: %s",
+                self.__input_file_name,
+                self.__path_se,
+            )
+
+            self._Me = au.GetObjectFromFile(input_file, self.__path_me)
+            logger.debug(
+                "Mixed event distribution from %s at path: %s",
+                self.__input_file_name,
+                self.__path_me,
+            )
+            input_file.Close()
 
     def SetHistograms(self, Se, Me):
         """
@@ -96,10 +126,10 @@ class AnalysisHandler:
             Me (THX): Mixed event distribution
         """
         self._Se = Se.Clone("SE")
-        self._Me = Se.Clone("ME")
+        self._Me = Me.Clone("ME")
         logger.debug("Same and mixed event distribution passed directly")
 
-    def ProcessHandler(self, index):
+    def _ProcessHandler(self, index):
         """
         Process CorrelationHandler
         Args:
@@ -130,10 +160,10 @@ class AnalysisHandler:
             workers (int): Number of launched processes. If number is less then 0, use all avaiable cores
         """
 
-        self.GetHistograms()
+        self.__GetHistograms()
 
         # generate all configurations, i.e. all rebins and all ranges
-        self.GenerateConfigurations()
+        self.__GenerateConfigurations()
 
         if parallel == True:
             if workers <= 0:
@@ -141,16 +171,16 @@ class AnalysisHandler:
             with ProcessPoolExecutor(max_workers=workers) as executor:
                 self.__handler_list = list(
                     executor.map(
-                        self.ProcessHandler, list(range(len(self.__config_list)))
+                        self._ProcessHandler, list(range(len(self.__config_list)))
                     )
                 )
         else:
             for i in range(len(self.__config_list)):
-                self.__handler_list.append(self.ProcessHandler(i))
+                self.__handler_list.append(self._ProcessHandler(i))
 
         self.SaveToOutput(parallel, workers)
 
-    def GenerateConfigurations(self):
+    def __GenerateConfigurations(self):
         """
         Generate all configurations
         """
@@ -179,13 +209,13 @@ class AnalysisHandler:
         for rebin in self.__rebin_list:
             for ranges in range_list:
                 d = {
-                    "Name": self.GetConfigName(rebin, ranges),
+                    "Name": self.__GetConfigName(rebin, ranges),
                     "Rebin": rebin,
                     "Ranges": ranges,
                 }
                 self.__config_list.append(d)
 
-    def GetConfigName(self, rebin, ranges):
+    def __GetConfigName(self, rebin, ranges):
         """
         Generate a name for a configuration
         Name will be given to the TDirectoryFile used to store the output of configuration with given index
@@ -193,7 +223,11 @@ class AnalysisHandler:
             rebin (int): Rebin factor
             range (list): list of ranges
         """
-        ConfigName = f"Rebin_{rebin}"
+        # rebin 1 is a special case
+        if rebin == 1:
+            ConfigName = "NoRebin"
+        else:
+            ConfigName = f"Rebin_{rebin}"
 
         if ranges is not None:
             for i, e in enumerate(ranges):
