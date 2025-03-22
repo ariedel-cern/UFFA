@@ -63,13 +63,15 @@ class PlotHandler:
         self.__yaxis_label_size = canvas_dict.get("YLabelSize", 0.04)
 
         self.__xaxis_bin_labels = canvas_dict.get("XBinLabels", [])
-        self.__yaxis_bin_labels = canvas_dict.get("YBinLabels", [])
+        # self.__yaxis_bin_labels = canvas_dict.get("YBinLabels", [])
 
         self.__xaxis_title_offset = canvas_dict.get("XTitleOffset", 1)
         self.__yaxis_title_offset = canvas_dict.get("YTitleOffset", 1)
 
         self.__hist_dicts = []
         self.__graph_dicts = []
+        self.__line_dicts = []
+        self.__text_dicts = []
 
         # legend style
         self.__create_legend = False
@@ -80,7 +82,10 @@ class PlotHandler:
             self.__legend_ymin = legend_dict.get("Ymin", 0)
             self.__legend_ymax = legend_dict.get("Ymax", 0)
 
+            self.__legend_font = legend_dict.get("Font", 42)
+            self.__legend_textsize = legend_dict.get("TextSize", 0)
             self.__legend_bordersize = legend_dict.get("BorderSize", 0)
+            self.__legend_fillcolor = legend_dict.get("FillColor", 0)
             self.__legend_fillstyle = legend_dict.get("FillStyle", 0)
             self.__legend_columns = legend_dict.get("NColumns", 1)
             self.__legend_header = legend_dict.get("Header", "")
@@ -89,6 +94,8 @@ class PlotHandler:
         self.__canvas = None
         self.__histograms = []
         self.__graphs = []
+        self.__lines = []
+        self.__texts = []
         self.__legend = None
 
     def SetHistograms(self, hist_dicts):
@@ -130,6 +137,12 @@ class PlotHandler:
 
     def SetGraphs(self, graph_dicts):
         self.__graph_dicts = copy.deepcopy(graph_dicts)
+
+    def SetLines(self, line_dicts):
+        self.__line_dicts = copy.deepcopy(line_dicts)
+
+    def SetTexts(self, text_dicts):
+        self.__text_dicts = copy.deepcopy(text_dicts)
 
     def CreateCanvas(self):
         """
@@ -239,6 +252,10 @@ class PlotHandler:
         )
 
         # defaults for legend
+        rt.gStyle.SetLegendFont(self.__legend_font)
+        rt.gStyle.SetLegendTextSize(self.__legend_textsize)
+        rt.gStyle.SetLegendFillColor(self.__legend_fillcolor)
+
         self.__legend.SetBorderSize(self.__legend_bordersize)
         self.__legend.SetFillStyle(self.__legend_fillstyle)
         self.__legend.SetNColumns(self.__legend_columns)
@@ -272,29 +289,50 @@ class PlotHandler:
                     graph.GetLegendOption(),
                 )
 
+    def DrawLines(self):
+        """
+        Draw TLineObjects objects to plot text in the plot
+        """
+        for line_dict in self.__line_dicts:
+            self.__lines.append(rt.TLine())
+            self.__lines[-1].SetLineWidth(line_dict.get("Width", 3))
+            self.__lines[-1].SetLineStyle(line_dict.get("Style", 1))
+            if "Alpha" in line_dict:
+                self.__lines[-1].SetLineColorAlpha(
+                    line_dict.get("Color", 1), line_dict.get("Alpha", 1)
+                )
+            else:
+                self.__lines[-1].SetLineColor(line_dict.get("Color", 1))
+            self.__lines[-1].DrawLine(
+                line_dict.get("Xmin", 0),
+                line_dict.get("Ymin", 1),
+                line_dict.get("Xmax", 0),
+                line_dict.get("Ymax", 1),
+            )
+
+    def DrawTexts(self):
+        """
+        Draw TLatex objects on plot
+        """
+        for text_dict in self.__text_dicts:
+            self.__texts.append(rt.TLatex())
+            self.__texts[-1].SetTextAlign(text_dict.get("Align", 11))
+            self.__texts[-1].SetTextFont(text_dict.get("Font", 42))
+            self.__texts[-1].SetTextSize(text_dict.get("Size", 20))
+            self.__texts[-1].DrawLatexNDC(
+                text_dict.get("X", 0.5),
+                text_dict.get("Y", 0.5),
+                text_dict.get("Text", "text"),
+            )
+
     def FetchObjects(self):
         """
         Fetch histograms
         """
         logger.debug("Fetch histograms")
-        # override titles and names
-        for i, d in enumerate(self.__hist_dicts):
-            d.update(
-                {
-                    "Name": f"Histogram_{i}",
-                }
-            )
-        # create wrappers
         self.__histograms = [th1p.TH1Plotter(d) for d in self.__hist_dicts]
 
         logger.debug("Fetch graphs")
-        # override titles and names
-        for i, d in enumerate(self.__graph_dicts):
-            d.update(
-                {
-                    "Name": f"Graph_{i}",
-                }
-            )
         self.__graphs = [tgp.TGraphPlotter(d) for d in self.__graph_dicts]
 
     def Plot(self):
@@ -302,17 +340,25 @@ class PlotHandler:
         Create plot overlaying all pass objects
         """
         logger.debug("Draw plot")
-        # fetch histogram and
+        # fetch histogram and graphs
         self.FetchObjects()
-        # create canvas and legend
+        # create canvas
         self.CreateCanvas()
+        # create legend
         self.CreateLegend()
+        # create texts
+        self.DrawTexts()
+        # draw lines
+        self.DrawLines()
         # draw histograms with configured style
         for hist in self.__histograms:
             hist.Draw(style=True)
         # draw graphs with configured style
         for graph in self.__graphs:
             graph.Draw(style=True)
+        # draw text
+        # for text in self.__texts:
+        #     text.Draw()
         # draw legend
         if self.__create_legend:
             self.__legend.Draw()

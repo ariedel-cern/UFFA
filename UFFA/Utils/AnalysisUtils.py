@@ -1,4 +1,5 @@
 import pathlib
+import ROOT
 
 
 def CheckDictEntry(dict, key, type):
@@ -43,6 +44,23 @@ def GetObjectFromFile(file, path):
         # reset the pointer
         current_dir = next_dir
     return current_dir
+
+
+def GetObject(filename, path):
+    """
+    Get object from file with filename
+    Wrapper function for GetObjectFromFile which takes care of opening and closing the file
+    Args:
+        filename (string): filename with full path
+        path (string): path to the object in the TFile, delimited by /
+
+    Returns:
+       Searched object
+    """
+    file = ROOT.TFile(filename, "READ")
+    object = GetObjectFromFile(file, path).Clone()
+    file.Close()
+    return object
 
 
 def CreateOutputDir(path, rename_old=False):

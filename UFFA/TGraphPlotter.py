@@ -53,6 +53,7 @@ class TGraphPlotter:
         self.__MarkerSize = graph_dict.get("MarkerSize", 1.0)
 
         self.__FillColor = graph_dict.get("FillColor", 0)
+        self.__FillAlpha = graph_dict.get("FillAlpha", -1)
         self.__FillStyle = graph_dict.get("FillStyle", 1001)
 
         self.__draw_options = graph_dict.get("DrawOption", "P")
@@ -102,7 +103,14 @@ class TGraphPlotter:
         logger.debug("Marker style: %d", self.__MarkerStyle)
         logger.debug("Marker size: %.2f", self.__MarkerSize)
 
-        self.__graph.SetFillColor(self.__FillColor)
+        if self.__FillAlpha > 0:
+            self.__graph.SetFillColorAlpha(self.__FillColor, self.__FillAlpha)
+            logger.debug(
+                "Fill color: %d with Alpha: %.2f", self.__FillColor, self.__FillAlpha
+            )
+        else:
+            self.__graph.SetFillColor(self.__FillColor)
+            logger.debug("Fill color: %d", self.__FillColor)
         self.__graph.SetFillStyle(self.__FillStyle)
         logger.debug("Fill color: %d", self.__FillColor)
         logger.debug("Fill style: %d", self.__FillStyle)

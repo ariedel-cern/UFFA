@@ -1,4 +1,7 @@
 import ROOT as rt
+
+rt.TH1.AddDirectory(False)
+
 import logging
 
 from .Utils import AnalysisUtils as au
@@ -18,16 +21,12 @@ class TH1Plotter:
             self.__hist.SetDirectory(0)
             logger.debug("Set histogram %s from dict", self.__hist.GetName())
         else:
-            with rt.TFile(hist_dict.get("File", ""), "READ") as file:
-                self.__hist = au.GetObjectFromFile(
-                    file, hist_dict.get("Path", "path")
-                ).Clone()
-                self.__hist.SetDirectory(0)
-                logger.debug(
-                    "Open file %s to retrieve histogram at path %s",
-                    hist_dict.get("File", ""),
-                    hist_dict.get("Path", "path"),
-                )
+            au.GetObject(hist_dict.get("File", ""), hist_dict.get("Path", "path"))
+            logger.debug(
+                "Open file %s to retrieve histogram at path %s",
+                hist_dict.get("File", ""),
+                hist_dict.get("Path", "path"),
+            )
 
         # name and title
         self.__histName = hist_dict.get("Name", "histogram")
@@ -51,13 +50,8 @@ class TH1Plotter:
         self.__MarkerStyle = hist_dict.get("MarkerStyle", 1)
         self.__MarkerSize = hist_dict.get("MarkerSize", 1.0)
 
-        self.__FillColor = None
-        self.__FillColorAlpha = None
-        if "FillColor" in hist_dict:
-            if isinstance(hist_dict.get("FillColor"), tuple):
-                self.__FillColorAlpha = hist_dict.get("FillColor", (0, 0))
-            else:
-                self.__FillColor = hist_dict.get("FillColor", 0)
+        self.__FillColor = hist_dict.get("FillColor", 0)
+        self.__FillAlpha = hist_dict.get("FillAlpha", -1)
         self.__FillStyle = hist_dict.get("FillStyle", 1001)
 
         self.__Norm = hist_dict.get("Norm", -1)
@@ -112,18 +106,14 @@ class TH1Plotter:
         logger.debug("Marker style: %d", self.__MarkerStyle)
         logger.debug("Marker size: %.2f", self.__MarkerSize)
 
-        if self.__FillColor:
+        if self.__FillAlpha > 0:
+            self.__hist.SetFillColorAlpha(self.__FillColor, self.__FillAlpha)
+            logger.debug(
+                "Fill color: %d with Alpha: %.2f", self.__FillColor, self.__FillAlpha
+            )
+        else:
             self.__hist.SetFillColor(self.__FillColor)
             logger.debug("Fill color: %d", self.__FillColor)
-        if self.__FillColorAlpha:
-            self.__hist.SetFillColorAlpha(
-                self.__FillColorAlpha[0], self.__FillColorAlpha[1]
-            )
-            logger.debug(
-                "Fill color alpha: (%d,%.2f",
-                self.__FillColorAlpha[0],
-                self.__FillColorAlpha[1],
-            )
         self.__hist.SetFillStyle(self.__FillStyle)
         logger.debug("Fill style: %d", self.__FillStyle)
 

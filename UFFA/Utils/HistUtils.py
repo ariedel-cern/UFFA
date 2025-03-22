@@ -138,3 +138,21 @@ def RescaleHist(hist, scale, axis):
                     hist_rescaled.SetBinError(i, j, k, bin_error)
 
     return hist_rescaled
+
+
+def NormalizeHistogramIntegral(hist, integral=1, name="normalized"):
+    """
+    Normalized integral of histogram to a given value
+    Args:
+        hist (TH1): histogram to be normalized
+        integral (flaot): Value of the integral, by default equal to 1
+        name (string): name of the normalized histogram
+
+    Returns:
+        Scaled histogram
+    """
+    hist_clone = hist.Clone(name)
+    hist_integral = hist.Integral()
+    if integral != 0:
+        hist_clone.Scale(integral / hist_integral)
+    return hist_clone
