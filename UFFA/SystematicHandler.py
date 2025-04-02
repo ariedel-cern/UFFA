@@ -68,6 +68,14 @@ class SystematicHandler:
 
         self.__variations = []
 
+        self.__systematics_signal = rt.TH1F(
+            "SignalVariation",
+            "SignalVariation",
+            len(self.__variation_dicts),
+            0.5,
+            len(self.__variation_dicts) + 0.5,
+        )
+
         for i, variation_dict in enumerate(self.__variation_dicts):
             if "Histogram" in variation_dict:
                 variation = variation_dict.get("Object").Clone(f"Variation_{i:02d}")
@@ -90,14 +98,16 @@ class SystematicHandler:
             Signal_Variation = variation.Integral(
                 self.__signal_region[0], self.__signal_region[1]
             )
-            diff = np.abs(Signal - Signal_Variation) / Signal
+            diff = (Signal - Signal_Variation) / Signal
             logger.debug(
                 "Signal %.2f with relative deviation from the signal %.2f",
                 Signal_Variation,
                 diff,
             )
 
-            if diff <= self.__max_signal_variation:
+            self.__systematics_signal.SetBinContent(i + 1, diff)
+
+            if np.abs(diff) <= self.__max_signal_variation:
                 self.__variations.append(variation)
                 logger.debug("Accept variation %d", i)
             else:
@@ -136,41 +146,54 @@ class SystematicHandler:
 
     def __GenerateObjects(self):
         if "Graph" in self.__stats_dict:
-            self.__stats = self.__stats_dict.get("Graph").Clone("Graph_Stat")
+            self.__stats_graph = self.__stats_dict.get("Graph").Clone("Graph_Stat")
             logger.debug(
                 "Get graph with stat. uncertainty %s",
                 self.__default.GetName(),
             )
         else:
             InputFile = rt.TFile(self.__stats_dict.get("File"), "READ")
-            self.__stats = au.GetObjectFromFile(
+            self.__stats_graph = au.GetObjectFromFile(
                 InputFile, self.__stats_dict.get("Path")
             ).Clone("Graph_Stat")
             InputFile.Close()
             logger.debug(
                 "Get graph with stat. uncertainty %s from file %s at path %s",
-                self.__stats.GetName(),
+                self.__stats_graph.GetName(),
                 self.__stats_dict.get("File"),
                 self.__stats_dict.get("Path"),
             )
 
-            self.__systs = self.__stats.Clone("Graph_Syst")
-            self.__bins = self.__stats.Clone("Graph_BinWidth")
+            self.__systs_graph = self.__stats_graph.Clone("Graph_Syst")
+            self.__bins_graph = self.__stats_graph.Clone("Graph_BinWidth")
 
-            for bin in range(self.__stats.GetN()):
-                self.__systs.SetPointError(
+            for bin in range(self.__stats_graph.GetN()):
+                self.__systs_graph.SetPointError(
                     bin,
-                    self.__stats.GetErrorX(bin),
+                    self.__stats_graph.GetErrorX(bin),
                     self.__systematics_hist.GetBinContent(bin + 1),
                 )
 
-            for bin in range(self.__stats.GetN()):
-                self.__bins.SetPoint(
+            for bin in range(self.__stats_graph.GetN()):
+                self.__bins_graph.SetPoint(
                     bin,
                     self.__default.GetBinCenter(bin + 1),
                     self.__default.GetBinContent(bin + 1),
                 )
-                self.__bins.SetPointError(bin, self.__default.GetBinWidth(bin) / 2, 0)
+                self.__bins_graph.SetPointError(
+                    bin, self.__default.GetBinWidth(bin) / 2, 0
+                )
+
+            self.__systs_hist = self.__default.Clone("Hist_Syst")
+            self.__stats_hist = self.__default.Clone("Hist_Stat")
+
+            for bin in range(self.__stats_graph.GetN()):
+                self.__systs_hist.SetBinError(
+                    bin + 1, self.__systematics_hist.GetBinContent(bin + 1)
+                )
+                self.__stats_hist.SetBinError(
+                    bin + 1, self.__stats_graph.GetErrorY(bin)
+                )
 
     def SteerSystematics(self):
         if "Histogram" in self.__default_dict:
@@ -203,9 +226,12 @@ class SystematicHandler:
         systematics_dir = rt.TDirectoryFile("Systematics", "Systematics", "", OutputDir)
         systematics_dir.Add(self.__systematics_hist)
         systematics_dir.Add(self.__systematics_dist)
-        systematics_dir.Add(self.__stats)
-        systematics_dir.Add(self.__systs)
-        systematics_dir.Add(self.__bins)
+        systematics_dir.Add(self.__systematics_signal)
+        systematics_dir.Add(self.__stats_graph)
+        systematics_dir.Add(self.__systs_graph)
+        systematics_dir.Add(self.__bins_graph)
+        systematics_dir.Add(self.__systs_hist)
+        systematics_dir.Add(self.__stats_hist)
         systematics_dir.Write()
 
         variations_dir = rt.TDirectoryFile("Variations", "Variations", "", OutputDir)

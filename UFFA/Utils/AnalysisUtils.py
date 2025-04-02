@@ -1,5 +1,10 @@
 import pathlib
-import ROOT
+import numpy as np
+import ROOT as rt
+
+rt.gROOT.SetBatch(True)
+rt.EnableThreadSafety()
+rt.TH1.AddDirectory(False)
 
 
 def CheckDictEntry(dict, key, type):
@@ -11,55 +16,65 @@ def CheckDictEntry(dict, key, type):
 
 def GetObjectFromFile(file, path):
     """
-    Get an object from file
+    Get an object from file.
     Args:
-        file (TFile): TFile object that it already opend
+        file (TFile): TFile object that it already opened
         path (string): path to the object in the TFile, delimited by /
-
     Returns:
-       Searched object
+        Searched object
     """
 
-    # split path into a list
+    # Strip any leading/trailing spaces from path
+    path = path.strip()
+
+    # Split path into a list, while making sure to not split on spaces
     dirs = path.split("/")
 
-    #
     current_dir = file
     next_dir = None
 
     for dir in dirs:
-        # try to find object in TDirectory
+        # Handle potential spaces in directory names correctly
         try:
             next_dir = current_dir.Get(dir)
         except:
             pass
-        # if this failed, try to find object in TList
+
         if not next_dir:
             try:
                 next_dir = current_dir.findobject(dir)
             except:
                 pass
+
         if not next_dir:
             raise ValueError(f"Object at {path} not found")
-        # reset the pointer
+
+        # Reset the pointer to the next directory
         current_dir = next_dir
+
     return current_dir
 
 
 def GetObject(filename, path):
     """
-    Get object from file with filename
-    Wrapper function for GetObjectFromFile which takes care of opening and closing the file
+    Get object from file with filename.
+    Wrapper function for GetObjectFromFile, which takes care of opening and closing the file.
     Args:
         filename (string): filename with full path
         path (string): path to the object in the TFile, delimited by /
-
     Returns:
-       Searched object
+        Searched object
     """
-    file = ROOT.TFile(filename, "READ")
+
+    # Open the file
+    file = rt.TFile(filename, "READ")
+
+    # Get the object from file
     object = GetObjectFromFile(file, path).Clone()
+
+    # Close the file
     file.Close()
+
     return object
 
 

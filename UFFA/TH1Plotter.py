@@ -21,7 +21,9 @@ class TH1Plotter:
             self.__hist.SetDirectory(0)
             logger.debug("Set histogram %s from dict", self.__hist.GetName())
         else:
-            au.GetObject(hist_dict.get("File", ""), hist_dict.get("Path", "path"))
+            self.__hist = au.GetObject(
+                hist_dict.get("File", ""), hist_dict.get("Path", "path")
+            )
             logger.debug(
                 "Open file %s to retrieve histogram at path %s",
                 hist_dict.get("File", ""),

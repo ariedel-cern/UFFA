@@ -13,8 +13,8 @@ class TGraphPlotter:
 
     def __init__(self, graph_dict):
         if "Graph" in graph_dict:
-            logger.debug("Set graph %s from dict", graph_dict["Graph"].GetName())
             self.__graph = graph_dict.get("Graph").Clone()
+            logger.debug("Set graph %s from dict", graph_dict["Graph"].GetName())
         else:
             with rt.TFile(graph_dict.get("File"), "READ") as file:
                 self.__graph = au.GetObjectFromFile(
@@ -45,6 +45,7 @@ class TGraphPlotter:
 
         # style settings
         self.__LineColor = graph_dict.get("LineColor", rt.kBlack)
+        self.__LineAlpha = graph_dict.get("LineAlpha", -1)
         self.__LineStyle = graph_dict.get("LineStyle", 1)
         self.__LineWidth = graph_dict.get("LineWidth", 1)
 
@@ -89,7 +90,10 @@ class TGraphPlotter:
         logger.debug("Y axis title size %.2f", self.__yaxisTitleSize)
         logger.debug("Y axis label size %.2f", self.__yaxisLabelSize)
 
-        self.__graph.SetLineColor(self.__LineColor)
+        if self.__LineAlpha > 0:
+            self.__graph.SetLineColorAlpha(self.__LineColor, self.__LineAlpha)
+        else:
+            self.__graph.SetLineColor(self.__LineColor)
         self.__graph.SetLineStyle(self.__LineStyle)
         self.__graph.SetLineWidth(self.__LineWidth)
         logger.debug("Line color: %d", self.__LineColor)

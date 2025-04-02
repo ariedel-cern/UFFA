@@ -287,3 +287,68 @@ def RescaleGraph(graph, scale):
     g = rt.TGraphErrors(n_bins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
     g.SetNameTitle(graph.GetName() + "_rescaled", graph.GetTitle() + "_rescaled")
     return g
+
+
+def GetRelativeUncertainties(object):
+    """
+    Return relative uncertainties bin by bin or point by point
+    """
+    rel_unc = []
+    if object.InheritsFrom(rt.TH1.Class()):
+        for i in range(object.GetNbinsX()):
+            y = object.GetBinContent(i + 1)
+            ey = object.GetBinError(i + 1)
+
+            if y != 0:
+                rel = ey / y
+            else:
+                rel = 0
+            rel_unc.append(rel)
+        return np.array(rel_unc)
+    if object.InheritsFrom(rt.TGraph.Class()):
+        for i in range(object.GetN()):
+            y = object.GetPointY(i)
+            ey = object.GetErrorY(i)
+            if y != 0:
+                rel = ey / y
+            else:
+                rel = 0
+            rel_unc.append(rel)
+        return np.array(rel_unc)
+
+
+def DivideGraphs(g1, g2):
+    """
+    Divide two TGraphErrors by each other
+    """
+    if g1.GetN() != g2.GetN():
+        raise ValueError("Graphs have different numbers of points!")
+
+    result = rt.TGraphErrors(g1.GetN())
+
+    for i in range(g1.GetN()):
+        x1, y1 = 0.0, 0.0
+        ex1, ey1 = 0.0, 0.0
+        x2, y2 = 0.0, 0.0
+        ex2, ey2 = 0.0, 0.0
+
+        x1 = g1.GetPointX(i)
+        y1 = g1.GetPointY(i)
+        ex1 = g1.GetErrorX(i)
+        ey1 = g1.GetErrorY(i)
+
+        x2 = g2.GetPointX(i)
+        y2 = g2.GetPointY(i)
+        ex2 = g2.GetErrorX(i)
+        ey2 = g2.GetErrorY(i)
+
+        # Division of the values
+        y = y1 / y2
+        x = x1
+        ex = ex1
+        ey = y * ((ey1 / y1) ** 2 + (ey2 / y2) ** 2) ** 0.5
+
+        result.SetPoint(i, x1, y)
+        result.SetPointError(i, ex, ey)
+
+    return result

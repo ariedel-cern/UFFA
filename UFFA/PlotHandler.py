@@ -68,6 +68,8 @@ class PlotHandler:
         self.__xaxis_title_offset = canvas_dict.get("XTitleOffset", 1)
         self.__yaxis_title_offset = canvas_dict.get("YTitleOffset", 1)
 
+        self.__end_error_size = canvas_dict.get("EndErrorSize", 1)
+
         self.__hist_dicts = []
         self.__graph_dicts = []
         self.__line_dicts = []
@@ -318,7 +320,7 @@ class PlotHandler:
             self.__texts.append(rt.TLatex())
             self.__texts[-1].SetTextAlign(text_dict.get("Align", 11))
             self.__texts[-1].SetTextFont(text_dict.get("Font", 42))
-            self.__texts[-1].SetTextSize(text_dict.get("Size", 20))
+            self.__texts[-1].SetTextSize(text_dict.get("Size", 0.08))
             self.__texts[-1].DrawLatexNDC(
                 text_dict.get("X", 0.5),
                 text_dict.get("Y", 0.5),
@@ -340,6 +342,9 @@ class PlotHandler:
         Create plot overlaying all pass objects
         """
         logger.debug("Draw plot")
+        # global style options
+        rt.gStyle.SetEndErrorSize(self.__end_error_size)
+
         # fetch histogram and graphs
         self.FetchObjects()
         # create canvas
