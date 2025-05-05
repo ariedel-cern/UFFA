@@ -377,7 +377,7 @@ def GetNsigma(stat, syst, theory):
     and returns the result as a TGraphErrors.
 
     Parameters:
-    data_graph (ROOT.TGraphErrors): Graph with data points and statistical uncertainties.
+    stat_graph (ROOT.TGraphErrors): Graph with data points and statistical uncertainties.
     sys_graph (ROOT.TGraphErrors): Graph with data points and systematic uncertainties.
     theory_graph (ROOT.TGraphErrors): Graph with theory predictions (may have more points).
 
@@ -386,15 +386,15 @@ def GetNsigma(stat, syst, theory):
     """
     # Extract points from the data graph (x and y) and their uncertainties
     n_data = stat.GetN()
-    data_x = np.array([stat.GetX()[i] for i in range(n_data)])
-    data_y = np.array([stat.GetY()[i] for i in range(n_data)])
-    data_stat_error = np.array([stat.GetErrorY(i) for i in range(n_data)])
+    stat_x = np.array([stat.GetX()[i] for i in range(n_data)])
+    stat_y = np.array([stat.GetY()[i] for i in range(n_data)])
+    stat_error = np.array([stat.GetErrorY(i) for i in range(n_data)])
 
     # Extract systematic uncertainties from the sys graph
     sys_error = np.array([syst.GetErrorY(i) for i in range(n_data)])
 
     # Calculate total error for the data points
-    total_error = np.sqrt(data_stat_error**2 + sys_error**2)
+    total_error = np.sqrt(stat_error**2 + sys_error**2)
 
     # Extract theory points (x and y) and their uncertainties
     n_theory = theory.GetN()
@@ -404,16 +404,15 @@ def GetNsigma(stat, syst, theory):
 
     # Create a list to store the deviations (n-sigma)
     n_sigma_deviations = []
-    n_sigma_errors = []  # Error for the n-sigma (set to zero for now)
 
     # Loop over the data points and compare with the closest theory point
     for i in range(n_data):
         # Find the nearest theory point by minimizing the difference in x-values
-        min_diff = np.abs(theory_x - data_x[i])
+        min_diff = np.abs(theory_x - stat_x[i])
         nearest_theory_idx = np.argmin(min_diff)
 
-        # Compute the absolute difference between the data and theory at the same x
-        y_diff = data_y[i] - theory_y[nearest_theory_idx]
+        # Compute the absolute difference between the data and theory at the (approximately) same x
+        y_diff = stat_y[i] - theory_y[nearest_theory_idx]
 
         # Compute the combined error (data + theory error) for the n-sigma
         combined_error = np.sqrt(
@@ -429,6 +428,6 @@ def GetNsigma(stat, syst, theory):
 
     # Fill the TGraphErrors with the n-sigma values
     for i in range(n_data):
-        n_sigma_graph.SetPoint(i, data_x[i], n_sigma_deviations[i])
+        n_sigma_graph.SetPoint(i, stat_x[i], n_sigma_deviations[i])
 
     return n_sigma_graph
