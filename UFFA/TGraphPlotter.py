@@ -2,6 +2,7 @@ import ROOT as rt
 import logging
 
 from .Utils import AnalysisUtils as au
+from .Utils import CorrelationUtils as cu
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,12 @@ class TGraphPlotter:
                     graph_dict.get("File"),
                     graph_dict.get("Path"),
                 )
+
+        self.__minimal_uncertainty = graph_dict.get("MinimalUncertainty", -1)
+        if self.__minimal_uncertainty > 0:
+            self.__graph = cu.SetMinimalUncertainty(
+                self.__graph, self.__minimal_uncertainty
+            )
 
         # file to fetch histogram (if needed)
         self.__filename = graph_dict.get("File", "")

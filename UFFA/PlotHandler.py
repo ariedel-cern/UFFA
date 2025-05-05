@@ -56,17 +56,19 @@ class PlotHandler:
         self.__xaxis_title = canvas_dict.get("XTitle", "xaxis")
         self.__yaxis_title = canvas_dict.get("YTitle", "yaxis")
 
-        self.__xaxis_title_size = canvas_dict.get("XTitleSize", 0.04)
-        self.__yaxis_title_size = canvas_dict.get("YTitleSize", 0.04)
+        self.__xaxis_title_size = canvas_dict.get("XTitleSize", 0.07)
+        self.__yaxis_title_size = canvas_dict.get("YTitleSize", 0.07)
 
-        self.__xaxis_label_size = canvas_dict.get("XLabelSize", 0.04)
-        self.__yaxis_label_size = canvas_dict.get("YLabelSize", 0.04)
+        self.__xaxis_label_size = canvas_dict.get("XLabelSize", 0.05)
+        self.__yaxis_label_size = canvas_dict.get("YLabelSize", 0.05)
 
         self.__xaxis_bin_labels = canvas_dict.get("XBinLabels", [])
         # self.__yaxis_bin_labels = canvas_dict.get("YBinLabels", [])
 
         self.__xaxis_title_offset = canvas_dict.get("XTitleOffset", 1)
         self.__yaxis_title_offset = canvas_dict.get("YTitleOffset", 1)
+        self.__ticks_x = canvas_dict.get("TicksX", 1)
+        self.__ticks_y = canvas_dict.get("TicksY", 1)
 
         self.__end_error_size = canvas_dict.get("EndErrorSize", 1)
 
@@ -258,6 +260,10 @@ class PlotHandler:
         rt.gStyle.SetLegendTextSize(self.__legend_textsize)
         rt.gStyle.SetLegendFillColor(self.__legend_fillcolor)
 
+        # self.__texts[-1].SetTextAlign(text_dict.get("Align", 11))
+        # self.__legend.SetTextFont(self.__legend_font)
+        # self.__legend.SetTextSize(self.__legend_textsize)
+
         self.__legend.SetBorderSize(self.__legend_bordersize)
         self.__legend.SetFillStyle(self.__legend_fillstyle)
         self.__legend.SetNColumns(self.__legend_columns)
@@ -344,6 +350,8 @@ class PlotHandler:
         logger.debug("Draw plot")
         # global style options
         rt.gStyle.SetEndErrorSize(self.__end_error_size)
+        rt.gStyle.SetPadTickX(self.__ticks_x)
+        rt.gStyle.SetPadTickY(self.__ticks_y)
 
         # fetch histogram and graphs
         self.FetchObjects()

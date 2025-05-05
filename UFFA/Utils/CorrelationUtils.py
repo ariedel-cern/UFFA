@@ -317,38 +317,118 @@ def GetRelativeUncertainties(object):
         return np.array(rel_unc)
 
 
-def DivideGraphs(g1, g2):
+def SetMinimalUncertainty(graph, threshold):
     """
-    Divide two TGraphErrors by each other
+    Adjusts the uncertainties in the TGraph if they are lower than the threshold.
+
+    Parameters:
+    graph (ROOT.TGraph): The TGraph object to process.
+    threshold (float): The minimum value for the uncertainties.
     """
-    if g1.GetN() != g2.GetN():
-        raise ValueError("Graphs have different numbers of points!")
 
-    result = rt.TGraphErrors(g1.GetN())
+    g = graph.Clone()
 
-    for i in range(g1.GetN()):
-        x1, y1 = 0.0, 0.0
-        ex1, ey1 = 0.0, 0.0
-        x2, y2 = 0.0, 0.0
-        ex2, ey2 = 0.0, 0.0
+    # Get the number of points in the graph
+    n_points = g.GetN()
 
-        x1 = g1.GetPointX(i)
-        y1 = g1.GetPointY(i)
-        ex1 = g1.GetErrorX(i)
-        ey1 = g1.GetErrorY(i)
+    if isinstance(g, rt.TGraphAsymmErrors):
+        # Get the number of points in the graph
+        n_points = g.GetN()
 
-        x2 = g2.GetPointX(i)
-        y2 = g2.GetPointY(i)
-        ex2 = g2.GetErrorX(i)
-        ey2 = g2.GetErrorY(i)
+        # Loop over each point
+        for i in range(n_points):
+            # Get the current Y error (uncertainty) at the i-th point
+            y_error_low = g.GetErrorYlow(i)
+            y_error_up = g.GetErrorYhigh(i)
+            # If the current error is lower than the threshold, adjust it
+            if y_error_low < threshold:
+                g.SetPointError(
+                    i, g.GetErrorXlow(i), g.GetErrorXhigh(i), threshold, y_error_up
+                )
+            if y_error_up < threshold:
+                g.SetPointError(
+                    i, g.GetErrorXlow(i), g.GetErrorXhigh(i), y_error_low, threshold
+                )
 
-        # Division of the values
-        y = y1 / y2
-        x = x1
-        ex = ex1
-        ey = y * ((ey1 / y1) ** 2 + (ey2 / y2) ** 2) ** 0.5
+    elif isinstance(g, rt.TGraph):
+        # For TGraph (symmetric errors), adjust only the Y error
+        n_points = g.GetN()
 
-        result.SetPoint(i, x1, y)
-        result.SetPointError(i, ex, ey)
+        # Loop over each point
+        for i in range(n_points):
+            # Get the current Y error (uncertainty) at the i-th point
+            y_error = g.GetErrorY(i)
 
-    return result
+            # If the current error is lower than the threshold, adjust it
+            if y_error < threshold:
+                g.SetPointError(
+                    i, g.GetErrorX(i), threshold
+                )  # Adjust Y error to threshold
+
+    else:
+        raise TypeError("Input graph must be a TGraph or TGraphAsymmErrors.")
+
+    return g
+
+
+def GetNsigma(stat, syst, theory):
+    """
+    Computes the deviation between the data and the theory in terms of n-sigma using interpolation,
+    and returns the result as a TGraphErrors.
+
+    Parameters:
+    data_graph (ROOT.TGraphErrors): Graph with data points and statistical uncertainties.
+    sys_graph (ROOT.TGraphErrors): Graph with data points and systematic uncertainties.
+    theory_graph (ROOT.TGraphErrors): Graph with theory predictions (may have more points).
+
+    Returns:
+    ROOT.TGraphErrors: A TGraphErrors object containing the n-sigma deviations for each data point.
+    """
+    # Extract points from the data graph (x and y) and their uncertainties
+    n_data = stat.GetN()
+    data_x = np.array([stat.GetX()[i] for i in range(n_data)])
+    data_y = np.array([stat.GetY()[i] for i in range(n_data)])
+    data_stat_error = np.array([stat.GetErrorY(i) for i in range(n_data)])
+
+    # Extract systematic uncertainties from the sys graph
+    sys_error = np.array([syst.GetErrorY(i) for i in range(n_data)])
+
+    # Calculate total error for the data points
+    total_error = np.sqrt(data_stat_error**2 + sys_error**2)
+
+    # Extract theory points (x and y) and their uncertainties
+    n_theory = theory.GetN()
+    theory_x = np.array([theory.GetX()[i] for i in range(n_theory)])
+    theory_y = np.array([theory.GetY()[i] for i in range(n_theory)])
+    theory_error = np.array([theory.GetErrorY(i) for i in range(n_theory)])
+
+    # Create a list to store the deviations (n-sigma)
+    n_sigma_deviations = []
+    n_sigma_errors = []  # Error for the n-sigma (set to zero for now)
+
+    # Loop over the data points and compare with the closest theory point
+    for i in range(n_data):
+        # Find the nearest theory point by minimizing the difference in x-values
+        min_diff = np.abs(theory_x - data_x[i])
+        nearest_theory_idx = np.argmin(min_diff)
+
+        # Compute the absolute difference between the data and theory at the same x
+        y_diff = data_y[i] - theory_y[nearest_theory_idx]
+
+        # Compute the combined error (data + theory error) for the n-sigma
+        combined_error = np.sqrt(
+            total_error[i] ** 2 + theory_error[nearest_theory_idx] ** 2
+        )
+
+        # Compute the deviation in n-sigma
+        n_sigma = y_diff / combined_error
+        n_sigma_deviations.append(n_sigma)
+
+    # Create the  object to store the n-sigma deviations
+    n_sigma_graph = rt.TGraph(n_data)
+
+    # Fill the TGraphErrors with the n-sigma values
+    for i in range(n_data):
+        n_sigma_graph.SetPoint(i, data_x[i], n_sigma_deviations[i])
+
+    return n_sigma_graph
