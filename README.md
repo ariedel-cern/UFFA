@@ -103,3 +103,9 @@ ME/   → mixed-event histograms
 CF/   → correlation functions (SE/ME)
 ```
 The user can inspect the output thoroughly after execution.
+
+## 📝 TODO
+
+- [ ] Finalize Systematics Handler
+- [ ] Document Systematics Handler
+- [ ] Add Example Scripts
