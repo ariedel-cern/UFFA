@@ -1,4 +1,4 @@
-# 🌀 UFFA — Unified Femtoscopy Framework for Analysis
+# 🌀 UFFA — Unified Framework for Femtoscopy Analysis
 
 UFFA (Unified Framework for Femtoscopy Analysis) is a modular Python-based framework designed for **femtoscopic analysis**.
 It automates the workflow from histogram input to correlation function output, supporting rebinning, range selection, normalization, and result merging — all output is stored in a structured ROOT file.
@@ -73,7 +73,7 @@ Handler.SteerAnalysis(parallel=True)
 
 📁 Output Structure
 
-UFFA stores all analysis results in the directory defined by Output_Dir (default: analysis).
+UFFA stores all analysis results in the directory defined by Output_Dir:
 
 Example output:
 
@@ -91,8 +91,8 @@ Rebin_8_Dim_1-1.65-2.7
 
 Each directory corresponds to a single configuration, identified by:
 
-- the rebin factor (Rebin_<Rebin factor>)
-- the range (Dim_<ith dimension>_<Lower Limit>-<Upper Limit>)
+- the rebin factor (Rebin_\<Rebin factor\>)
+- the range (Dim_\<ith dimension\>_\<Lower Limit\>-\<Upper Limit\>)
 
 The ranges correspond typically to bins in transverse mass, invariant mass, multiplicity, multiplicity percentile, ...
 
