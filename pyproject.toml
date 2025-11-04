@@ -9,7 +9,7 @@ description = "UFFA: Unifed Framework for Femtoscopy Analysis"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Anton Riedel", email = "anton.riede@cern.ch" }]
-dependencies = ["ROOT"]
+dependencies = [ ]
 
 [tool.setuptools.packages.find]
 where = ["."]
