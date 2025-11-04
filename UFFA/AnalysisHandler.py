@@ -1,18 +1,21 @@
 import ROOT as rt
 
 rt.gROOT.SetBatch(True)
-rt.EnableThreadSafety()
 rt.TH1.AddDirectory(False)
 
 import itertools
 import os
+from functools import partial
 import logging
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import tempfile
 
 from . import CorrelationHandler as ch
 from .Utils import AnalysisUtils as au
 
 logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    logging.basicConfig(level=logging.DEBUG)
 
 
 class AnalysisHandler:
@@ -28,94 +31,93 @@ class AnalysisHandler:
             AnalysisDict (dict): Dictionary to configure AnalysisHandler
         """
 
-        # declare class variables
-        self.__input_file_name = None
-        self.__output_file_name = None
-        self.__output_file = None
-        self.__output_dir_name = None
-        self.__path_se = None
-        self.__path_me = None
-        self.__normalization_range = None
-        self.__axis_kstar = None
-        self.__rescale_kstar = -1
-        self.__axis_reweight = None
-
-        self.__rebin_list = []
-        self.__range_list = []
-        self.__config_list = []
-        self.__handler_list = []
+        # # declare class variables
+        self._config_list = []
+        self._output_path_list = []
 
         # get input file
-        self.__input_file_name = analysis_dict.get("Input_File", None)
+        self._input_file_name = analysis_dict.get("Input_File", None)
 
         # by default it is assumed that SE and ME are in the same file
         # adding option to specify the file seperately
-        self.__input_file_name_se = analysis_dict.get("Input_File_SE", None)
-        self.__input_file_name_me = analysis_dict.get("Input_File_ME", None)
+        self._input_file_name_se = analysis_dict.get("Input_File_SE", None)
+        self._input_file_name_me = analysis_dict.get("Input_File_ME", None)
 
-        # check same event distribution
-        self.__path_se = analysis_dict.get("Path_SE", "SE")
-        self.__path_me = analysis_dict.get("Path_ME", "ME")
+        # paths to SE and ME distribution
+        self._path_se = analysis_dict.get("Path_SE", "SE")
+        self._path_me = analysis_dict.get("Path_ME", "ME")
 
-        self.__output_file_name = analysis_dict.get("Output_File", "./output.root")
-        logger.debug("Output file name: %s", self.__output_file_name)
-        au.CreateOutputDir(self.__output_file_name)
-        self.__output_dir_name = analysis_dict.get("Output_Dir", "analysis")
+        self._output_file_name = analysis_dict.get("Output_File", "./output.root")
+        logger.debug("Output file name: %s", self._output_file_name)
+        au.CreateOutputDir(self._output_file_name)
+        self._output_dir_name = analysis_dict.get("Output_Dir", "analysis")
         logger.debug(
-            "Name for TDirectoryFile in output file: %s", self.__output_dir_name
+            "Name for TDirectoryFile in output file: %s", self._output_dir_name
         )
 
         # these are checked and logged later in CorrelationHandler class
-        self.__normalization_range = analysis_dict.get(
+        self._normalization_range = analysis_dict.get(
             "Normalization_Range", (0.24, 0.34)
         )
 
-        self.__rebin_list = analysis_dict.get("Rebin_Factor_Kstar_Axis", [1])
-        self.__axis_kstar = analysis_dict.get("Index_Kstar_Axis", 0)
-        self.__rescale_kstar = analysis_dict.get("Rescale_Factor_Kstar_Axis", -1)
-        self.__axis_reweight = analysis_dict.get("Index_Reweight_Axis", -1)
-        self.__range_list = analysis_dict.get("Bins", [])
+        if (
+            not isinstance(self._normalization_range, (tuple, list))
+            or len(self._normalization_range) != 2
+        ):
+            raise ValueError(
+                "Normalization_Range must be a tuple/list of two floats (low, high)"
+            )
 
-    def __GetHistograms(self):
+        self._rebin_list = analysis_dict.get("Rebin_Factor_Kstar_Axis", [1])
+        self._axis_kstar = analysis_dict.get("Index_Kstar_Axis", 0)
+        self._rescale_kstar = analysis_dict.get("Rescale_Factor_Kstar_Axis", -1)
+        self._axis_reweight = analysis_dict.get("Index_Reweight_Axis", -1)
+        self._range_list = analysis_dict.get("Bins", [])
+
+    def _GetHistograms(self):
         """
         Get histograms from input file, if defined
         """
-        if self.__input_file_name == None:
-            input_file_se = rt.TFile(self.__input_file_name_se, "READ")
+        if self._input_file_name:
+            input_file = rt.TFile(self._input_file_name, "READ")
 
-            self._Se = au.GetObjectFromFile(input_file_se, self.__path_se)
+            self._Se = au.GetObjectFromFile(input_file, self._path_se)
             logger.debug(
                 "Get Same event distribution from %s at path: %s",
-                self.__input_file_name_se,
-                self.__path_se,
+                self._input_file_name,
+                self._path_se,
+            )
+
+            self._Me = au.GetObjectFromFile(input_file, self._path_me)
+            logger.debug(
+                "Mixed event distribution from %s at path: %s",
+                self._input_file_name,
+                self._path_me,
+            )
+            input_file.Close()
+        elif self._input_file_name_se and self._input_file_name_me:
+            input_file_se = rt.TFile(self._input_file_name_se, "READ")
+
+            self._Se = au.GetObjectFromFile(input_file_se, self._path_se)
+            logger.debug(
+                "Get Same event distribution from %s at path: %s",
+                self._input_file_name_se,
+                self._path_se,
             )
             input_file_se.Close()
 
-            input_file_me = rt.TFile(self.__input_file_name_me, "READ")
-            self._Me = au.GetObjectFromFile(input_file_me, self.__path_me)
+            input_file_me = rt.TFile(self._input_file_name_me, "READ")
+            self._Me = au.GetObjectFromFile(input_file_me, self._path_me)
             logger.debug(
                 "Get Mixed event distribution from %s at path: %s",
-                self.__input_file_name_me,
-                self.__path_me,
+                self._input_file_name_me,
+                self._path_me,
             )
             input_file_me.Close()
         else:
-            input_file = rt.TFile(self.__input_file_name, "READ")
-
-            self._Se = au.GetObjectFromFile(input_file, self.__path_se)
-            logger.debug(
-                "Get Same event distribution from %s at path: %s",
-                self.__input_file_name,
-                self.__path_se,
+            raise ValueError(
+                "Either Input_File or both Input_File_SE and Input_File_ME must be provided."
             )
-
-            self._Me = au.GetObjectFromFile(input_file, self.__path_me)
-            logger.debug(
-                "Mixed event distribution from %s at path: %s",
-                self.__input_file_name,
-                self.__path_me,
-            )
-            input_file.Close()
 
     def SetHistograms(self, Se, Me):
         """
@@ -129,7 +131,7 @@ class AnalysisHandler:
         self._Me = Me.Clone("ME")
         logger.debug("Same and mixed event distribution passed directly")
 
-    def _ProcessHandler(self, index):
+    def _ProcessHandler(self, index, tmp_dir):
         """
         Process CorrelationHandler
         Args:
@@ -141,16 +143,34 @@ class AnalysisHandler:
         Handler = ch.CorrelationHandler(
             self._Se,
             self._Me,
-            self.__normalization_range,
-            self.__config_list[index]["Rebin"],
-            self.__rescale_kstar,
-            self.__axis_kstar,
-            self.__axis_reweight,
-            self.__config_list[index]["Ranges"],
+            self._normalization_range,
+            self._config_list[index]["Rebin"],
+            self._rescale_kstar,
+            self._axis_kstar,
+            self._axis_reweight,
+            self._config_list[index]["Ranges"],
         )
         Handler.FinalTouch()
 
-        return Handler
+        handler_outputfile_path = os.path.join(
+            tmp_dir, f"{index}_" + os.path.basename(self._output_file_name)
+        )
+
+        OutputFile = rt.TFile(handler_outputfile_path, "RECREATE")
+        self._output_dir = rt.TDirectoryFile(
+            self._output_dir_name, self._output_dir_name, "", OutputFile
+        )
+        HandlerOutputDir = rt.TDirectoryFile(
+            self._config_list[index]["Name"],
+            self._config_list[index]["Name"],
+            "",
+            self._output_dir,
+        )
+        Handler.SaveOutput(HandlerOutputDir)
+        OutputFile.Write()
+        OutputFile.Close()
+
+        return handler_outputfile_path
 
     def SteerAnalysis(self, parallel=False, workers=0):
         """
@@ -160,37 +180,39 @@ class AnalysisHandler:
             workers (int): Number of launched processes. If number is less then 0, use all avaiable cores
         """
 
-        self.__GetHistograms()
+        self._GetHistograms()
 
         # generate all configurations, i.e. all rebins and all ranges
-        self.__GenerateConfigurations()
+        self._GenerateConfigurations()
 
-        if parallel == True:
-            if workers <= 0:
-                workers = os.cpu_count()
-            with ProcessPoolExecutor(max_workers=workers) as executor:
-                self.__handler_list = list(
-                    executor.map(
-                        self._ProcessHandler, list(range(len(self.__config_list)))
+        with tempfile.TemporaryDirectory(prefix="UFFA_") as tmp_dir:
+            logger.debug("Partial outputs will be stored in %s", tmp_dir)
+            args = [(i, tmp_dir) for i in range(len(self._config_list))]
+            if parallel:
+                if workers <= 0:
+                    workers = os.cpu_count()
+                with ProcessPoolExecutor(max_workers=workers) as executor:
+                    func = partial(self._ProcessHandler, tmp_dir=tmp_dir)
+                    self._output_path_list = list(
+                        executor.map(func, range(len(self._config_list)))
                     )
-                )
-        else:
-            for i in range(len(self.__config_list)):
-                self.__handler_list.append(self._ProcessHandler(i))
+            else:
+                for arg in args:
+                    self._output_path_list.append(self._ProcessHandler(*arg))
 
-        self.SaveToOutput(parallel, workers)
+            self.MergeOutputs()
 
-    def __GenerateConfigurations(self):
+    def _GenerateConfigurations(self):
         """
         Generate all configurations
         """
 
         # split all given ranges
         range_list = []
-        if self.__range_list is not None:
+        if self._range_list:
             ranges = []
             # loop over all dimensions
-            for r in self.__range_list:
+            for r in self._range_list:
                 temp = []
                 # if only one range is defined, take it
                 if len(r) <= 2:
@@ -206,16 +228,16 @@ class AnalysisHandler:
             range_list = [[]]
 
         # now get all combinations of ranges and rebins
-        for rebin in self.__rebin_list:
+        for rebin in self._rebin_list:
             for ranges in range_list:
                 d = {
-                    "Name": self.__GetConfigName(rebin, ranges),
+                    "Name": self._GetConfigName(rebin, ranges),
                     "Rebin": rebin,
                     "Ranges": ranges,
                 }
-                self.__config_list.append(d)
+                self._config_list.append(d)
 
-    def __GetConfigName(self, rebin, ranges):
+    def _GetConfigName(self, rebin, ranges):
         """
         Generate a name for a configuration
         Name will be given to the TDirectoryFile used to store the output of configuration with given index
@@ -237,51 +259,19 @@ class AnalysisHandler:
                     ConfigName = ConfigName + f"_Dim_{i}-{str(e[0])}-{str(e[1])}"
         return ConfigName
 
-    def SaveHandler(self, index):
+    def MergeOutputs(self):
         """
-        Save CorrelationHandler
+        Merge output of all CorrelationHandler
 
         Args:
-            dict (dictionary): Save output of configuration for given index pair. First element is the range and second index is the rebin
+            index (int): Configuration index to save.
         """
 
-        HandlerOutputDir = rt.TDirectoryFile(
-            self.__config_list[index]["Name"],
-            self.__config_list[index]["Name"],
-            "",
-            self._OutputDir,
-        )
-        self.__handler_list[index].SaveOutput(HandlerOutputDir)
+        logger.debug("Merging final output into %s", self._output_file_name)
 
-    def SaveToOutput(self, parallel=False, workers=-1):
-        """
-        Save analysis output to file
-        Args:
-            parallel (bool): Save analysis output in parallel if true
-            workers (int): Number of launched threads(!). If number is less then 0, use all avaiable cores.
-        """
-        OutputFile = rt.TFile(self.__output_file_name, "UPDATE")
-        # check first if a tdirectoryfile with the same name already exists
-        temp_dir = OutputFile.Get(self.__output_dir_name)
-        if temp_dir is not None:
-            OutputFile.Delete(f"{self.__output_dir_name};*")
+        merger = rt.TFileMerger()
+        merger.OutputFile(self._output_file_name, "RECREATE")
+        for file in self._output_path_list:
+            merger.AddFile(file)
 
-        self._OutputDir = rt.TDirectoryFile(
-            self.__output_dir_name, self.__output_dir_name, "", OutputFile
-        )
-
-        if parallel == True:
-            if workers <= 0:
-                workers = os.cpu_count()
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                executor.map(self.SaveHandler, list(range(len(self.__handler_list))))
-        else:
-            for i in range(len(self.__handler_list)):
-                self.SaveHandler(i)
-
-        self._OutputDir.Write(
-            self.__output_dir_name, rt.TObject.kSingleKey + rt.TObject.kWriteDelete
-        )
-
-        OutputFile.Save()
-        OutputFile.Close()
+        merger.Merge()

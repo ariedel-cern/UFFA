@@ -44,7 +44,7 @@ class CorrelationHandler:
         ranges=[],
     ):
         """
-        CorrelationHanderl constructor
+        CorrelationHandler constructor
         Read in all information necessary to compute the correlation function
         Args:
             se (TH1/TH2/TH3/THnSparse): Same Event distribution
@@ -147,7 +147,7 @@ class CorrelationHandler:
         if len(normalization_range) == 2:
             if normalization_range[0] > normalization_range[1]:
                 raise ValueError(
-                    f"Lower edge of NormRange is larger than the upper edge (%{normalization_range[0]}, {normalization_range[1]})"
+                    f"Lower edge of NormRange is larger than the upper edge ({normalization_range[0]}, {normalization_range[1]})"
                 )
             self.__normalization_range = normalization_range
             self.__do_normalization = True
@@ -385,7 +385,7 @@ class CorrelationHandler:
         if self.__cf.GetSumw2N() == 0:
             self.__cf.Sumw2(True)
         self.__cf.Divide(self.__me_1d)
-        if self.__axis_reweight is not None:
+        if self.__do_reweight:
             self.__cf_reweighted = self.__se_1d.Clone(self.cf_reweighted_name)
             # active Sumw2 if not already for error computation
             if self.__cf_reweighted.GetSumw2N() == 0:
