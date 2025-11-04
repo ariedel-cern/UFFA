@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "UFFA"
+version = "0.1.0"
+description = "UFFA: Unifed Framework for Femtoscopy Analysis"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Anton Riedel", email = "anton.riede@cern.ch" }]
+dependencies = ["ROOT"]
+
+[tool.setuptools.packages.find]
+where = ["."]
