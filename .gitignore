@@ -2,3 +2,5 @@
 ./config
 ./config/*
 */.config
+build/
+*.egg-info
