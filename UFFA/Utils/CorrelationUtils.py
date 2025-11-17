@@ -204,7 +204,7 @@ def Recenter(cf, me, skipEmptyBins=False):
     """
     Recenter bins of the correlation function according to mixed event distribution with a finer binning
     Args:
-        cf (TGraphErrors): correlation function to be recentered
+        cf (TH1): correlation function to be recentered
         me (TH1): fine binned mixed event distribution
         skipEmptyBins (bool): skip empty bins, so there is not data point at 0
 
@@ -228,7 +228,7 @@ def Recenter(cf, me, skipEmptyBins=False):
         error = 0
 
         # loop over underlying bins in fine binned mixed event distribution
-        for bins in range(1 + (bin - 1) * rebin, bin * rebin):
+        for bins in range(1 + (bin - 1) * rebin, bin * rebin + 1):
             value = value + me.GetBinCenter(bins) * me.GetBinContent(bins)
             norm = norm + me.GetBinContent(bins)
 
@@ -242,7 +242,7 @@ def Recenter(cf, me, skipEmptyBins=False):
             # if we do not skip empty bins, then use the original bin center
             value = cf.GetBinCenter(bin)
 
-        for bins in range(1 + (bin - 1) * rebin, bin * rebin):
+        for bins in range(1 + (bin - 1) * rebin, bin * rebin + 1):
             error = error + me.GetBinContent(bins) * np.power(
                 me.GetBinCenter(bins) - value, 2
             )
