@@ -236,7 +236,7 @@ class CorrelationHandler:
             self.__me,
             self.__normalization_range,
             0,  # dont rebin
-            -1,  # dont rescale
+            self.__rescale_kstar,
             self.__axis_kstar,
             self.__axis_reweight,
             self.__ranges,
