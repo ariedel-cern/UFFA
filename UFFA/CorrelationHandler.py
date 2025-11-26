@@ -248,26 +248,27 @@ class CorrelationHandler:
         Rebin Se/Me histogram
         """
         logger.debug("Rebin SE/ME with %d", self.__rebin_kstar)
-        if self.__dim == 1:
-            self.__se.Rebin(self.__rebin_kstar)
-            self.__me.Rebin(self.__rebin_kstar)
-        elif self.__dim == 2:
-            if self.__axis_kstar == 0:
-                self.__se.RebinX(self.__rebin_kstar)
-                self.__me.RebinX(self.__rebin_kstar)
-            else:
-                self.__se.RebinY(self.__rebin_kstar)
-                self.__me.RebinY(self.__rebin_kstar)
-        elif self.__dim == 3:
-            if self.__axis_kstar == 0:
-                self.__se.RebinX(self.__rebin_kstar)
-                self.__me.RebinX(self.__rebin_kstar)
-            elif self.__axis_kstar == 1:
-                self.__se.RebinY(self.__rebin_kstar)
-                self.__me.RebinY(self.__rebin_kstar)
-            else:
-                self.__se.RebinZ(self.__rebin_kstar)
-                self.__me.RebinZ(self.__rebin_kstar)
+        if self.__inheritsTH1:
+            if self.__dim == 1:
+                self.__se.Rebin(self.__rebin_kstar)
+                self.__me.Rebin(self.__rebin_kstar)
+            elif self.__dim == 2:
+                if self.__axis_kstar == 0:
+                    self.__se.RebinX(self.__rebin_kstar)
+                    self.__me.RebinX(self.__rebin_kstar)
+                else:
+                    self.__se.RebinY(self.__rebin_kstar)
+                    self.__me.RebinY(self.__rebin_kstar)
+            elif self.__dim == 3:
+                if self.__axis_kstar == 0:
+                    self.__se.RebinX(self.__rebin_kstar)
+                    self.__me.RebinX(self.__rebin_kstar)
+                elif self.__axis_kstar == 1:
+                    self.__se.RebinY(self.__rebin_kstar)
+                    self.__me.RebinY(self.__rebin_kstar)
+                else:
+                    self.__se.RebinZ(self.__rebin_kstar)
+                    self.__me.RebinZ(self.__rebin_kstar)
         else:
             RebinFactors = np.ones((self.__dim))
             RebinFactors[self.__axis_kstar] = self.__rebin_kstar
@@ -307,17 +308,18 @@ class CorrelationHandler:
             se = self.__se
             me = self.__me
 
-        if self.__dim == 1:
-            self.__se_1d = se.Clone(self.se_1d_name)
-            self.__me_1d = me.Clone(self.me_1d_name)
+        if self.__inheritsTH1:
+            if self.__dim == 1:
+                self.__se_1d = se.Clone(self.se_1d_name)
+                self.__me_1d = me.Clone(self.me_1d_name)
 
-        elif self.__dim == 2:
-            self.__se_1d = cu.Proj2dTo1d(se, self.__axis_kstar, self.se_1d_name)
-            self.__me_1d = cu.Proj2dTo1d(me, self.__axis_kstar, self.me_1d_name)
+            elif self.__dim == 2:
+                self.__se_1d = cu.Proj2dTo1d(se, self.__axis_kstar, self.se_1d_name)
+                self.__me_1d = cu.Proj2dTo1d(me, self.__axis_kstar, self.me_1d_name)
 
-        elif self.__dim == 3:
-            self.__se_1d = cu.Proj3dTo1d(se, self.__axis_kstar, self.se_1d_name)
-            self.__me_1d = cu.Proj3dTo1d(me, self.__axis_kstar, self.me_1d_name)
+            elif self.__dim == 3:
+                self.__se_1d = cu.Proj3dTo1d(se, self.__axis_kstar, self.se_1d_name)
+                self.__me_1d = cu.Proj3dTo1d(me, self.__axis_kstar, self.me_1d_name)
         else:
             self.__se_1d = cu.ProjNdTo1d(se, self.__axis_kstar, self.se_1d_name)
             self.__me_1d = cu.ProjNdTo1d(me, self.__axis_kstar, self.me_1d_name)
@@ -342,22 +344,23 @@ class CorrelationHandler:
             Me = self.__me
 
         # if reweighting is activated, SE/ME need to hava at least 2 dimensions
-        if self.__dim == 2:
-            # Swap x and y axis in case kstar axis is not index 0
-            self.__se_2d = cu.Proj2dTo2d(
-                Se, self.__axis_kstar, self.__axis_reweight, self.se_2d_name
-            )
-            self.__me_2d = cu.Proj2dTo2d(
-                Me, self.__axis_kstar, self.__axis_reweight, self.me_2d_name
-            )
+        if self.__inheritsTH1:
+            if self.__dim == 2:
+                # Swap x and y axis in case kstar axis is not index 0
+                self.__se_2d = cu.Proj2dTo2d(
+                    Se, self.__axis_kstar, self.__axis_reweight, self.se_2d_name
+                )
+                self.__me_2d = cu.Proj2dTo2d(
+                    Me, self.__axis_kstar, self.__axis_reweight, self.me_2d_name
+                )
 
-        elif self.__dim == 3:
-            self.__se_2d = cu.Proj3dTo2d(
-                Se, self.__axis_kstar, self.__axis_reweight, self.se_2d_name
-            )
-            self.__me_2d = cu.Proj3dTo2d(
-                Me, self.__axis_kstar, self.__axis_reweight, self.me_2d_name
-            )
+            elif self.__dim == 3:
+                self.__se_2d = cu.Proj3dTo2d(
+                    Se, self.__axis_kstar, self.__axis_reweight, self.se_2d_name
+                )
+                self.__me_2d = cu.Proj3dTo2d(
+                    Me, self.__axis_kstar, self.__axis_reweight, self.me_2d_name
+                )
         else:
             self.__se_2d = cu.ProjNdTo2d(
                 Se, self.__axis_kstar, self.__axis_reweight, self.se_2d_name
