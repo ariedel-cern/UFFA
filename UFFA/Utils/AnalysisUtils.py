@@ -7,13 +7,6 @@ rt.EnableThreadSafety()
 rt.TH1.AddDirectory(False)
 
 
-def CheckDictEntry(dict, key, type):
-    if key not in dict:
-        raise ValueError(f"{key} not configured")
-    if not isinstance(dict[key], type):
-        raise TypeError(f"{key} has incorrect type")
-
-
 def GetObjectFromFile(file, path):
     """
     Get an object from file.
@@ -27,27 +20,26 @@ def GetObjectFromFile(file, path):
     # Strip any leading/trailing spaces from path
     path = path.strip()
 
-    # Split path into a list, while making sure to not split on spaces
+    # Split path into a list
     dirs = path.split("/")
 
     current_dir = file
     next_dir = None
 
-    for dir in dirs:
-        # Handle potential spaces in directory names correctly
+    for name in dirs:
         try:
-            next_dir = current_dir.Get(dir)
+            next_dir = current_dir.Get(name)
         except:
             pass
 
         if not next_dir:
             try:
-                next_dir = current_dir.findobject(dir)
+                next_dir = current_dir.FindObject(name)
             except:
                 pass
 
         if not next_dir:
-            raise ValueError(f"Object at {path} not found")
+            raise ValueError(f"Object {name} not found")
 
         # Reset the pointer to the next directory
         current_dir = next_dir
@@ -70,7 +62,8 @@ def GetObject(filename, path):
     file = rt.TFile(filename, "READ")
 
     # Get the object from file
-    object = GetObjectFromFile(file, path).Clone()
+    obj = GetObjectFromFile(file, path)
+    obj = obj.Clone()
 
     # Close the file
     file.Close()

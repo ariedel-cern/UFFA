@@ -7,7 +7,7 @@ import itertools
 import os
 from functools import partial
 import logging
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 import tempfile
 
 from . import CorrelationHandler as ch

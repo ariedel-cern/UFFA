@@ -1,6 +1,4 @@
 import ROOT as rt
-import numpy as np
-import ctypes as ct
 
 
 def FindBinWithUpperEdgeDetection(Axis, Value):
@@ -14,7 +12,8 @@ def FindBinWithUpperEdgeDetection(Axis, Value):
 
     """
     FoundBin = Axis.FindBin(Value)
-    if Value == Axis.GetBinLowEdge(FoundBin) and FoundBin != 1:
+    edge = Axis.GetBinLowEdge(FoundBin)
+    if abs(Value - edge) < 1e-7 and FoundBin != 1:
         FoundBin -= 1
     return FoundBin
 
@@ -72,6 +71,9 @@ def RescaleHist(hist, scale, axis):
     dimension = GetHistDimension(hist)
     name = hist.GetName() + f"_rescaled"
     hist_rescaled = None
+
+    if axis < 0 or axis >= dimension:
+        raise ValueError(f"Invalid axis {axis} for {dimension}D histogram")
 
     if dimension == 1:
         bins = hist.GetNbinsX()
@@ -131,11 +133,16 @@ def RescaleHist(hist, scale, axis):
         )
         for i in range(1, x_bins + 1):
             for j in range(1, y_bins + 1):
-                for k in range(1, y_bins + 1):
+                for k in range(1, z_bins + 1):
                     bin_content = hist.GetBinContent(i, j, k)
                     bin_error = hist.GetBinError(i, j, k)
                     hist_rescaled.SetBinContent(i, j, k, bin_content)
                     hist_rescaled.SetBinError(i, j, k, bin_error)
+
+    # keep some meta data
+    hist_rescaled.SetTitle(hist.GetTitle())
+    if hist.GetSumw2N() > 0:
+        hist_rescaled.Sumw2()
 
     return hist_rescaled
 
@@ -153,6 +160,6 @@ def NormalizeHistogramIntegral(hist, integral=1, name="normalized"):
     """
     hist_clone = hist.Clone(name)
     hist_integral = hist.Integral()
-    if integral != 0:
+    if hist_integral != 0:
         hist_clone.Scale(integral / hist_integral)
     return hist_clone
