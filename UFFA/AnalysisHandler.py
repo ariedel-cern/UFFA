@@ -50,7 +50,7 @@ class AnalysisHandler:
         self._output_file_name = analysis_dict.get("Output_File", "./output.root")
         logger.debug("Output file name: %s", self._output_file_name)
         au.CreateOutputDir(self._output_file_name)
-        self._output_dir_name = analysis_dict.get("Output_Dir", "analysis")
+        self._output_dir_name = analysis_dict.get("Output_Dir", "output")
         logger.debug(
             "Name for TDirectoryFile in output file: %s", self._output_dir_name
         )

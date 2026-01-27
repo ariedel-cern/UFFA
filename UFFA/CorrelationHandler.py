@@ -41,7 +41,7 @@ class CorrelationHandler:
         rescale_kstar=-1,
         axis_kstar=0,
         axis_reweight=-1,
-        ranges=[],
+        ranges=None,
     ):
         """
         CorrelationHandler constructor
@@ -107,7 +107,7 @@ class CorrelationHandler:
         self.__do_ranges = False
         self.__inheritsTH1 = False
 
-        ### From here: Argument santiszation and parsing
+        ### From here: Argument sanitization and parsing
 
         # check that SE and ME are not null pointers
         if se == None or me == None:
@@ -343,7 +343,7 @@ class CorrelationHandler:
             Se = self.__se
             Me = self.__me
 
-        # if reweighting is activated, SE/ME need to hava at least 2 dimensions
+        # if reweighting is activated, SE/ME need to have at least 2 dimensions
         if self.__inheritsTH1:
             if self.__dim == 2:
                 # Swap x and y axis in case kstar axis is not index 0
@@ -386,13 +386,13 @@ class CorrelationHandler:
         self.__cf = self.__se_1d.Clone(self.cf_name)
         # active Sumw2 if not already for error computation
         if self.__cf.GetSumw2N() == 0:
-            self.__cf.Sumw2(True)
+            self.__cf.Sumw2()
         self.__cf.Divide(self.__me_1d)
         if self.__do_reweight:
             self.__cf_reweighted = self.__se_1d.Clone(self.cf_reweighted_name)
             # active Sumw2 if not already for error computation
             if self.__cf_reweighted.GetSumw2N() == 0:
-                self.__cf_reweighted.Sumw2(True)
+                self.__cf_reweighted.Sumw2()
             self.__cf_reweighted.Divide(self.__me_1d_reweighted)
 
     def DoNormalizations(self):

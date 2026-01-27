@@ -141,7 +141,7 @@ def RescaleHist(hist, scale, axis):
 
     # keep some meta data
     hist_rescaled.SetTitle(hist.GetTitle())
-    if hist.GetSumw2N() > 0:
+    if hist.GetSumw2N() == 0:
         hist_rescaled.Sumw2()
 
     return hist_rescaled
