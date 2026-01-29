@@ -13,6 +13,7 @@ except ImportError as e:
 from .AnalysisHandler import AnalysisHandler
 from .CorrelationHandler import CorrelationHandler
 from .SystematicHandler import SystematicHandler
+from .FemtoMerger import FemtoMerger
 
 __all__ = [
     "AnalysisHandler",
