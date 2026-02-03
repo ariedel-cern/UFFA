@@ -401,10 +401,10 @@ class CorrelationHandler:
         Normalize correlation function and SE/ME in normalization range
         """
         logger.debug(
-            "Normalize correlation functions in range [if 0< %f *] (%f,%f) considering rescale factor",
-            self.__rescale_kstar,
+            "Normalize correlation functions in range (%f,%f). Apply rescale factor if positive: %f",
             self.__normalization_range[0],
             self.__normalization_range[1],
+            self.__rescale_kstar,
         )
 
         norm_range = ()
