@@ -1,4 +1,5 @@
 import ROOT as rt
+import numpy as np
 
 
 def FindBinWithUpperEdgeDetection(Axis, Value):
@@ -63,13 +64,13 @@ def SetHistRanges(hist, ranges):
                 hist.GetAxis(dim).SetRange(bin_low, bin_high)
 
 
-def RescaleHist(hist, scale, axis):
+def RescaleHist(hist, scale, axis, suffix="_Rescaled"):
     """
     Rescale axis of a histogram
     """
 
     dimension = GetHistDimension(hist)
-    name = hist.GetName() + f"_rescaled"
+    name = hist.GetName() + f"{suffix}"
     hist_rescaled = None
 
     if axis < 0 or axis >= dimension:

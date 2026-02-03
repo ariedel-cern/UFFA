@@ -3,6 +3,8 @@ import subprocess
 import os
 import logging
 
+from .Utils import AnalysisUtils as au
+
 # Global logger
 logger = logging.getLogger(__name__)
 if not logger.hasHandlers():
@@ -12,12 +14,6 @@ if not logger.hasHandlers():
 class FemtoMerger:
     """
     Merge femto outputs using rootcp + hadd.
-
-    Features:
-      - All input ROOT files are copied into the SAME directory name (out_dir)
-      - Output file is written directly (no post-copy)
-      - Optional overwrite of existing output
-      - Uses global logger for debugging
     """
 
     def __init__(self, config):
@@ -27,13 +23,15 @@ class FemtoMerger:
                 "inputs": ["file.root:SE", "file.root:ME"],
                 "output": "merged.root:femto",
                 "overwrite": False  # optional
+                "mergeJobs": #cores  # optional
+                "compression": 505  # optional
             }
         """
-        self.inputs = config["inputs"]
-        self.output = config["output"]
+        self.inputs = config.get("inputs", None)
+        self.output = config.get("output", None)
         self.overwrite = config.get("overwrite", False)
         self.mergeJobs = config.get("mergeJobs", os.cpu_count())
-        self.compression = config.get("compression", 509)
+        self.compression = config.get("compression", 505)
 
     @staticmethod
     def _split(path):
@@ -82,6 +80,7 @@ class FemtoMerger:
                 tmp_inputs.append(tmp_file)
 
             logger.debug(f"Merging {len(tmp_inputs)} files -> {out_file}")
+            au.CreateOutputDir(out_file)
             subprocess.check_call(
                 [
                     "hadd",

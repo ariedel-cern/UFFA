@@ -31,6 +31,7 @@ class CorrelationHandler:
     cf_reweighted_name = "CF_Reweighted"
     cf_recentered_name = "CF_Recentered"
     cf_reweighted_recentered_name = "CF_Reweighted_Recentered"
+    suffix_rescale = "_Rescaled"
 
     def __init__(
         self,
@@ -110,10 +111,10 @@ class CorrelationHandler:
         ### From here: Argument sanitization and parsing
 
         # check that SE and ME are not null pointers
-        if se == None or me == None:
+        if se is None or me is None:
             raise TypeError("Se or Me are null pointers")
         # check that SE and ME have the same class
-        if not (se.IsA() == me.IsA()):
+        if se.IsA() is not me.IsA():
             raise TypeError("Histogram type of SE and ME do not match")
 
         # bool to check if Se/Me inherit from TH1 (i.e. do not inherit from THn)
@@ -228,7 +229,7 @@ class CorrelationHandler:
     def DoNoRebin(self):
         """
         Generate CorrelationHandler object where rebin is turned off.
-        With this object we can recentered the correlation function according to the ME distribution.
+        With this object one can later recentered the correlation function according to the ME distribution.
         """
         logger.debug("Generated CorrelationHandler without rebinning")
         self.__handler_noRebin = CorrelationHandler(
@@ -400,66 +401,66 @@ class CorrelationHandler:
         Normalize correlation function and SE/ME in normalization range
         """
         logger.debug(
-            "Normalize correlation functions in range (%f,%f)",
+            "Normalize correlation functions in range [if 0< %f *] (%f,%f) considering rescale factor",
+            self.__rescale_kstar,
             self.__normalization_range[0],
             self.__normalization_range[1],
         )
 
+        norm_range = ()
+        if self.__do_rescale:
+            norm_range = (
+                self.__rescale_kstar * self.__normalization_range[0],
+                self.__rescale_kstar * self.__normalization_range[1],
+            )
+        else:
+            norm_range = self.__normalization_range
+
         self.__se_1d_normalized = cu.Normalize(
-            self.__se_1d.Clone(self.se_1d_normalized_name), self.__normalization_range
+            self.__se_1d.Clone(self.se_1d_normalized_name), norm_range
         )
         self.__me_1d_normalized = cu.Normalize(
-            self.__me_1d.Clone(self.me_1d_normalized_name), self.__normalization_range
+            self.__me_1d.Clone(self.me_1d_normalized_name), norm_range
         )
-        self.__cf = cu.Normalize(self.__cf, self.__normalization_range)
+        self.__cf = cu.Normalize(self.__cf, norm_range)
 
         if self.__do_reweight:
             self.__me_1d_reweighted_normalized = cu.Normalize(
                 self.__me_1d_reweighted.Clone(self.me_1d_reweighted_normalized_name),
-                self.__normalization_range,
+                norm_range,
             )
-            self.__cf_reweighted = cu.Normalize(
-                self.__cf_reweighted, self.__normalization_range
-            )
+            self.__cf_reweighted = cu.Normalize(self.__cf_reweighted, norm_range)
 
     def DoRescale(self):
         """
         Rescale kstar axis
         """
         logger.debug(
-            "Rescale correlation functions and distributions with %f",
+            "Rescale distributions with %f",
             self.__rescale_kstar,
         )
 
-        self.__se_1d = hu.RescaleHist(self.__se_1d, self.__rescale_kstar, 0)
-        self.__se_1d_normalized = hu.RescaleHist(
-            self.__se_1d_normalized, self.__rescale_kstar, 0
+        self.__se_1d = hu.RescaleHist(
+            self.__se_1d, self.__rescale_kstar, 0, self.suffix_rescale
         )
-        self.__me_1d = hu.RescaleHist(self.__me_1d, self.__rescale_kstar, 0)
-        self.__me_1d_normalized = hu.RescaleHist(
-            self.__me_1d_normalized, self.__rescale_kstar, 0
+        self.__me_1d = hu.RescaleHist(
+            self.__me_1d, self.__rescale_kstar, 0, self.suffix_rescale
         )
-        self.__cf = hu.RescaleHist(self.__cf, self.__rescale_kstar, 0)
 
         # if we reweight, then we also need the 2d histograms
         if self.__do_reweight:
-            self.__se_2d = hu.RescaleHist(self.__se_2d, self.__rescale_kstar, 0)
-            self.__me_2d = hu.RescaleHist(self.__me_2d, self.__rescale_kstar, 0)
+            self.__se_2d = hu.RescaleHist(
+                self.__se_2d, self.__rescale_kstar, 0, self.suffix_rescale
+            )
+            self.__me_2d = hu.RescaleHist(
+                self.__me_2d, self.__rescale_kstar, 0, self.suffix_rescale
+            )
+            self.__me_2d_reweighted = hu.RescaleHist(
+                self.__me_2d_reweighted, self.__rescale_kstar, 0, self.suffix_rescale
+            )
             self.__me_1d_reweighted = hu.RescaleHist(
-                self.__me_1d_reweighted, self.__rescale_kstar, 0
+                self.__me_1d_reweighted, self.__rescale_kstar, 0, self.suffix_rescale
             )
-            self.__cf_reweighted = hu.RescaleHist(
-                self.__cf_reweighted, self.__rescale_kstar, 0
-            )
-
-        if self.__do_rebin:
-            self.__cf_recentered = cu.RescaleGraph(
-                self.__cf_recentered, self.__rescale_kstar
-            )
-            if self.__do_reweight:
-                self.__cf_reweighted_recentered = cu.RescaleGraph(
-                    self.__cf_reweighted_recentered, self.__rescale_kstar
-                )
 
     def DoRecenter(self):
         """
@@ -527,6 +528,8 @@ class CorrelationHandler:
         if self.__do_reweight:
             self.DoProjectionsWithRw()
         # if rescale factor is given, rescale kstar axis of all histograms
+        if self.__do_rescale:
+            self.DoRescale()
         # compute correlation function
         self.DoCorrelations()
         # normalize correlation function/distributions
@@ -535,9 +538,6 @@ class CorrelationHandler:
         # if rebin is applied, compute bin center according to mixed event
         if self.__do_rebin:
             self.DoRecenter()
-        # rescale kstar axis of 1D/2D histograms and correlation function
-        if self.__do_rescale:
-            self.DoRescale()
         # gain ownership of all histograms
         self.ManageHistograms()
 

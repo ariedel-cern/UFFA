@@ -265,7 +265,7 @@ def Recenter(cf, me, skipEmptyBins=False):
     )
 
 
-def RescaleGraph(graph, scale):
+def RescaleGraph(graph, scale, suffix="_Rescaled"):
     """
     Rescale x axis of TGraphErrors
     """
@@ -285,7 +285,7 @@ def RescaleGraph(graph, scale):
     BinCenterY = np.array(BinCenterY, dtype=ct.c_double)
     BinErrorY = np.array(BinErrorY, dtype=ct.c_double)
     g = rt.TGraphErrors(n_bins, BinCenterX, BinCenterY, BinErrorX, BinErrorY)
-    g.SetNameTitle(graph.GetName() + "_rescaled", graph.GetTitle() + "_rescaled")
+    g.SetNameTitle(f"{graph.GetName()}{suffix}", f"{graph.GetTitle()}{suffix}")
     return g
 
 
