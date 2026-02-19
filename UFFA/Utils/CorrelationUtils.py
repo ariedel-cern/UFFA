@@ -144,9 +144,10 @@ def Proj2dTo2d(hist_2d, axis_x, axis_y, name):
             hist_2d.GetXaxis().GetXmin(),
             hist_2d.GetXaxis().GetXmax(),
         )
-        for i in range(hist_2d.GetNbinsX()):
-            for j in range(hist_2d.GetNbinsY()):
+        for i in range(1, hist_2d.GetNbinsX() + 1):
+            for j in range(1, hist_2d.GetNbinsY() + 1):
                 Hist.SetBinContent(j, i, hist_2d.GetBinContent(i, j))
+                Hist.SetBinError(j, i, hist_2d.GetBinError(i, j))
     return Hist
 
 
@@ -163,7 +164,7 @@ def Reweight2d(se, me, name):
     MeRw = me.Clone(name)
     MeRw.Reset()
 
-    for ybin in range(1, se.GetNbinsY()):
+    for ybin in range(1, se.GetNbinsY() + 1):
         SeBin = se.ProjectionX(f"se_bin_{ybin}", ybin, ybin)
         MeBin = me.ProjectionX(f"me_bin_{ybin}", ybin, ybin)
         SeInt = SeBin.Integral()
@@ -176,18 +177,18 @@ def Reweight2d(se, me, name):
     return MeRw
 
 
-def Normalize(distribution, range):
+def Normalize(distribution, norm_range):
     """
     Normalize distribution in given range
     Args:
         Dist (TH1): 1d histogram
-        range (tuple): Tuple with lower and upper bound
+        norm_range (tuple): Tuple with lower and upper bound
 
     Returns:
        Normalized histogram
     """
-    LowerBound = range[0]
-    UpperBound = range[1]
+    LowerBound = norm_range[0]
+    UpperBound = norm_range[1]
     LowerBin = distribution.FindBin(LowerBound)
     LowerEdge = distribution.GetBinLowEdge(LowerBin)
     UpperBin = distribution.FindBin(UpperBound)
@@ -195,7 +196,7 @@ def Normalize(distribution, range):
     Dist_Integral = distribution.Integral(LowerBin, UpperBin, "width")
     try:
         distribution.Scale((UpperEdge - LowerEdge) / Dist_Integral)
-    except:
+    except ZeroDivisionError:
         print("Integral in normalization range is zero")
     return distribution
 
@@ -211,6 +212,10 @@ def Recenter(cf, me, skipEmptyBins=False):
     Returns: Rescaled correlation functions as TGraphErrors
     """
 
+    if me.GetNbinsX() % cf.GetNbinsX() != 0:
+        raise ValueError(
+            f"ME bins ({me.GetNbinsX()}) is not a multiple of CF bins ({cf.GetNbinsX()})"
+        )
     # get rebin factor
     rebin = int(me.GetNbinsX() / cf.GetNbinsX())
     Nbins = cf.GetNbinsX()
@@ -233,7 +238,7 @@ def Recenter(cf, me, skipEmptyBins=False):
             norm = norm + me.GetBinContent(bins)
 
         # if requested, we skip empty bins
-        if skipEmptyBins == True and norm == 0:
+        if skipEmptyBins and norm == 0:
             continue
 
         if norm > 0:
@@ -289,15 +294,15 @@ def RescaleGraph(graph, scale, suffix="_Rescaled"):
     return g
 
 
-def GetRelativeUncertainties(object):
+def GetRelativeUncertainties(obj):
     """
     Return relative uncertainties bin by bin or point by point
     """
     rel_unc = []
-    if object.InheritsFrom(rt.TH1.Class()):
-        for i in range(object.GetNbinsX()):
-            y = object.GetBinContent(i + 1)
-            ey = object.GetBinError(i + 1)
+    if obj.InheritsFrom(rt.TH1.Class()):
+        for i in range(obj.GetNbinsX()):
+            y = obj.GetBinContent(i + 1)
+            ey = obj.GetBinError(i + 1)
 
             if y != 0:
                 rel = ey / y
@@ -305,10 +310,10 @@ def GetRelativeUncertainties(object):
                 rel = 0
             rel_unc.append(rel)
         return np.array(rel_unc)
-    if object.InheritsFrom(rt.TGraph.Class()):
-        for i in range(object.GetN()):
-            y = object.GetPointY(i)
-            ey = object.GetErrorY(i)
+    if obj.InheritsFrom(rt.TGraph.Class()):
+        for i in range(obj.GetN()):
+            y = obj.GetPointY(i)
+            ey = obj.GetErrorY(i)
             if y != 0:
                 rel = ey / y
             else:
@@ -332,9 +337,6 @@ def SetMinimalUncertainty(graph, threshold):
     n_points = g.GetN()
 
     if isinstance(g, rt.TGraphAsymmErrors):
-        # Get the number of points in the graph
-        n_points = g.GetN()
-
         # Loop over each point
         for i in range(n_points):
             # Get the current Y error (uncertainty) at the i-th point
@@ -351,9 +353,6 @@ def SetMinimalUncertainty(graph, threshold):
                 )
 
     elif isinstance(g, rt.TGraph):
-        # For TGraph (symmetric errors), adjust only the Y error
-        n_points = g.GetN()
-
         # Loop over each point
         for i in range(n_points):
             # Get the current Y error (uncertainty) at the i-th point
@@ -373,7 +372,7 @@ def SetMinimalUncertainty(graph, threshold):
 
 def GetNsigma(stat, syst, theory):
     """
-    Computes the deviation between the data and the theory in terms of n-sigma using interpolation,
+    Computes the deviation between the data and the theory in terms of n-sigma with nearest neighbour lookup
     and returns the result as a TGraphErrors.
 
     Parameters:

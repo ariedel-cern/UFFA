@@ -28,7 +28,7 @@ class AnalysisHandler:
         AnalysisHandler constructor
 
         Args:
-            AnalysisDict (dict): Dictionary to configure AnalysisHandler
+            analysis_dict (dict): Dictionary to configure AnalysisHandler
         """
 
         # # declare class variables
@@ -39,7 +39,7 @@ class AnalysisHandler:
         self._input_file_name = analysis_dict.get("Input_File", None)
 
         # by default it is assumed that SE and ME are in the same file
-        # adding option to specify the file seperately
+        # adding option to specify the file separately
         self._input_file_name_se = analysis_dict.get("Input_File_SE", None)
         self._input_file_name_me = analysis_dict.get("Input_File_ME", None)
 
@@ -74,10 +74,19 @@ class AnalysisHandler:
         self._axis_reweight = analysis_dict.get("Index_Reweight_Axis", -1)
         self._range_list = analysis_dict.get("Bins", [])
 
+        # init same and mixed event distribution to none
+        self._Se = None
+        self._Me = None
+
     def _GetHistograms(self):
         """
         Get histograms from input file, if defined
         """
+
+        # if same and mixed event are set externally, break out early
+        if self._Se is not None and self._Me is not None:
+            return
+
         if self._input_file_name:
             input_file = rt.TFile(self._input_file_name, "READ")
 
@@ -157,14 +166,14 @@ class AnalysisHandler:
         )
 
         OutputFile = rt.TFile(handler_outputfile_path, "RECREATE")
-        self._output_dir = rt.TDirectoryFile(
+        output_dir = rt.TDirectoryFile(
             self._output_dir_name, self._output_dir_name, "", OutputFile
         )
         HandlerOutputDir = rt.TDirectoryFile(
             self._config_list[index]["Name"],
             self._config_list[index]["Name"],
             "",
-            self._output_dir,
+            output_dir,
         )
         Handler.SaveOutput(HandlerOutputDir)
         OutputFile.Write()
@@ -177,7 +186,7 @@ class AnalysisHandler:
         Steer analysis
         Args:
             parallel (bool): Steer analysis in parallel if true
-            workers (int): Number of launched processes. If number is less then 0, use all avaiable cores
+            workers (int): Number of launched processes. If number is less then 0, use all available cores
         """
 
         self._GetHistograms()
@@ -187,7 +196,6 @@ class AnalysisHandler:
 
         with tempfile.TemporaryDirectory(prefix="UFFA_") as tmp_dir:
             logger.debug("Partial outputs will be stored in %s", tmp_dir)
-            args = [(i, tmp_dir) for i in range(len(self._config_list))]
             if parallel:
                 if workers <= 0:
                     workers = os.cpu_count()
@@ -197,9 +205,8 @@ class AnalysisHandler:
                         executor.map(func, range(len(self._config_list)))
                     )
             else:
-                for arg in args:
-                    self._output_path_list.append(self._ProcessHandler(*arg))
-
+                for i, tmp in [(i, tmp_dir) for i in range(len(self._config_list))]:
+                    self._output_path_list.append(self._ProcessHandler(i, tmp))
             self.MergeOutputs()
 
     def _GenerateConfigurations(self):
@@ -243,7 +250,7 @@ class AnalysisHandler:
         Name will be given to the TDirectoryFile used to store the output of configuration with given index
         Args:
             rebin (int): Rebin factor
-            range (list): list of ranges
+            ranges (list): list of ranges
         """
         # rebin 1 is a special case
         if rebin == 1:
@@ -262,9 +269,6 @@ class AnalysisHandler:
     def MergeOutputs(self):
         """
         Merge output of all CorrelationHandler
-
-        Args:
-            index (int): Configuration index to save.
         """
 
         logger.debug("Merging final output into %s", self._output_file_name)

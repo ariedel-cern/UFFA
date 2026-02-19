@@ -1,99 +1,84 @@
 import pathlib
-import numpy as np
+import logging
 import ROOT as rt
 
 rt.gROOT.SetBatch(True)
 rt.EnableThreadSafety()
 rt.TH1.AddDirectory(False)
 
+logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    logging.basicConfig(level=logging.DEBUG)
+
 
 def GetObjectFromFile(file, path):
     """
-    Get an object from file.
+    Get an object from an already-opened TFile.
+
     Args:
-        file (TFile): TFile object that it already opened
-        path (string): path to the object in the TFile, delimited by /
+        file (TFile): An already-opened TFile object.
+        path (str): Path to the object in the TFile, delimited by '/'.
+
     Returns:
-        Searched object
+        The requested ROOT object.
+
+    Raises:
+        ValueError: If any part of the path cannot be found.
     """
-
-    # Strip any leading/trailing spaces from path
-    path = path.strip()
-
-    # Split path into a list
-    dirs = path.split("/")
-
-    current_dir = file
-    next_dir = None
-
+    dirs = path.strip().split("/")
+    current = file
     for name in dirs:
-        try:
-            next_dir = current_dir.Get(name)
-        except:
-            pass
-
-        if not next_dir:
-            try:
-                next_dir = current_dir.FindObject(name)
-            except:
-                pass
-
-        if not next_dir:
-            raise ValueError(f"Object {name} not found")
-
-        # Reset the pointer to the next directory
-        current_dir = next_dir
-
-    return current_dir
+        next_obj = current.Get(name) or current.FindObject(name)
+        if not next_obj:
+            raise ValueError(
+                f"Object '{name}' not found in '{current.GetName()}' (full path: '{path}')"
+            )
+        current = next_obj
+    return current
 
 
 def GetObject(filename, path):
     """
-    Get object from file with filename.
-    Wrapper function for GetObjectFromFile, which takes care of opening and closing the file.
+    Get a ROOT object from a file by filename.
+
+    Wrapper around GetObjectFromFile that handles opening and closing the file.
+
     Args:
-        filename (string): filename with full path
-        path (string): path to the object in the TFile, delimited by /
+        filename (str): Full path to the ROOT file.
+        path (str): Path to the object in the TFile, delimited by '/'.
+
     Returns:
-        Searched object
+        A clone of the requested ROOT object.
+
+    Raises:
+        ValueError: If the file cannot be opened or the object is not found.
     """
-
-    # Open the file
     file = rt.TFile(filename, "READ")
-
-    # Get the object from file
-    obj = GetObjectFromFile(file, path)
-    obj = obj.Clone()
-
-    # Close the file
+    if not file or file.IsZombie():
+        raise ValueError(f"Could not open ROOT file: {filename}")
+    obj = GetObjectFromFile(file, path).Clone()
     file.Close()
-
-    return object
+    return obj
 
 
 def CreateOutputDir(path, rename_old=False):
     """
-    Make sure that the parent directory of path exists
+    Ensure the parent directory of the given path exists.
+
+    Args:
+        path (str or Path): Path whose parent directory should be created.
+        rename_old (bool): If True and a file already exists at path,
+                           rename it with a numeric suffix before returning.
     """
-    # create parent dir of path
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    # if set, check if file at path already exists
-    # if so, rename
-    if rename_old:
-        if path.exists():
-            base = path.stem  # File name without extension
-            suffix = path.suffix  # File extension (if any)
-            parent = path.parent
-        else:
-            return
-
+    if rename_old and path.exists():
         counter = 1
         while True:
-            new_name = f"{base}_{counter:04d}{suffix}"
-            new_path = parent / new_name
-            if not new_path.exists():  # Found a free name
-                path.rename(new_path)  # Rename the existing file
+            new_path = path.parent / f"{path.stem}_{counter:04d}{path.suffix}"
+            if not new_path.exists():
+                path.rename(new_path)
+                logger.debug("Renamed existing file %s -> %s", path, new_path)
                 break
             counter += 1

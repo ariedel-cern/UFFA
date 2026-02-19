@@ -1,5 +1,4 @@
 import ROOT as rt
-import numpy as np
 
 
 def FindBinWithUpperEdgeDetection(Axis, Value):
@@ -41,21 +40,22 @@ def SetHistRanges(hist, ranges):
     """
     dimension = GetHistDimension(hist)
 
-    if dimension == 1:
-        if ranges[0]:
-            hist.GetXaxis().SetRangeUser(ranges[0][0], ranges[0][1])
-    elif dimension == 2:
-        if ranges[0]:
-            hist.GetXaxis().SetRangeUser(ranges[0][0], ranges[0][1])
-        if ranges[1]:
-            hist.GetYaxis().SetRangeUser(ranges[1][0], ranges[1][1])
-    elif dimension == 3:
-        if ranges[0]:
-            hist.GetXaxis().SetRangeUser(ranges[0][0], ranges[0][1])
-        if ranges[1]:
-            hist.GetYaxis().SetRangeUser(ranges[1][0], ranges[1][1])
-        if ranges[2]:
-            hist.GetZaxis().SetRangeUser(ranges[2][0], ranges[2][1])
+    if not hist.InheritsFrom(rt.THnBase.Class()):
+        if dimension == 1:
+            if ranges[0]:
+                hist.GetXaxis().SetRangeUser(ranges[0][0], ranges[0][1])
+        elif dimension == 2:
+            if ranges[0]:
+                hist.GetXaxis().SetRangeUser(ranges[0][0], ranges[0][1])
+            if ranges[1]:
+                hist.GetYaxis().SetRangeUser(ranges[1][0], ranges[1][1])
+        elif dimension == 3:
+            if ranges[0]:
+                hist.GetXaxis().SetRangeUser(ranges[0][0], ranges[0][1])
+            if ranges[1]:
+                hist.GetYaxis().SetRangeUser(ranges[1][0], ranges[1][1])
+            if ranges[2]:
+                hist.GetZaxis().SetRangeUser(ranges[2][0], ranges[2][1])
     else:
         for dim, cut in enumerate(ranges):
             if cut:

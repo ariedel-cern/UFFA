@@ -489,26 +489,28 @@ class CorrelationHandler:
         Call SetDirectory(0) on all histograms to obtain ownership
         """
         logger.debug("Gain ownership of histograms")
-        if self.__inheritsTH1:
-            self.__se.SetDirectory(0)
-            self.__me.SetDirectory(0)
-            if self.__do_ranges:
-                self.__se_inRange.SetDirectory(0)
-                self.__me_inRange.SetDirectory(0)
-
-        self.__se_2d.SetDirectory(0)
-        self.__me_2d.SetDirectory(0)
-        self.__se_1d.SetDirectory(0)
-        self.__se_1d_normalized.SetDirectory(0)
-        self.__me_1d.SetDirectory(0)
-        self.__me_1d_normalized.SetDirectory(0)
-        self.__cf.SetDirectory(0)
-
-        if self.__do_reweight:
-            self.__me_2d_reweighted.SetDirectory(0)
-            self.__me_1d_reweighted.SetDirectory(0)
-            self.__me_1d_reweighted_normalized.SetDirectory(0)
-            self.__cf_reweighted.SetDirectory(0)
+        hists = [
+            self.__se,
+            self.__me,
+            self.__se_inRange,
+            self.__me_inRange,
+            self.__se_2d,
+            self.__me_2d,
+            self.__se_1d,
+            self.__se_1d_normalized,
+            self.__me_1d,
+            self.__me_1d_normalized,
+            self.__cf,
+            self.__me_2d_reweighted,
+            self.__me_1d_reweighted,
+            self.__me_1d_reweighted_normalized,
+            self.__cf_reweighted,
+            self.__cf_recentered,
+            self.__cf_reweighted_recentered,
+        ]
+        for h in hists:
+            if h is not None and h.InheritsFrom(rt.TH1.Class()):
+                h.SetDirectory(0)
 
     def FinalTouch(self):
         """
