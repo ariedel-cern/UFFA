@@ -19,7 +19,7 @@ class FemtoMerger:
         """
         config: dict
             {
-                "inputs": ["file.root:SE", "file.root:ME"],
+                "inputs": ["file.root:Particle", "file.root:AntiParticle"],
                 "output": "merged.root:femto",
                 "overwrite": False,      # optional
                 "mergeJobs": 4,          # optional, defaults to os.cpu_count()
