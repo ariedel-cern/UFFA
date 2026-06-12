@@ -54,8 +54,6 @@ class FemtoMerger:
         subprocess.check_call(
             [
                 "rootcp",
-                "--compress",
-                str(self.compression),
                 "--recursive",
                 "--recreate",
                 f"{src_file}:{src_dir}",
